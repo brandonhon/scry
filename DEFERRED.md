@@ -1,6 +1,6 @@
 # Deferred Work
 
-A running list of decisions, gaps, and known compromises taken during Phases 1–5 that still need attention. Organized by area. Update this file whenever a phase defers something; tick items off when they ship.
+A running list of decisions, gaps, and known compromises. Organized by area. Update this file whenever a phase defers something; tick items off when they ship.
 
 The `ip-scanner-plan.md` §10 decisions log is the **authoritative** short-form record. This file is the long-form task queue pointing back to code locations.
 
@@ -36,32 +36,41 @@ The `ip-scanner-plan.md` §10 decisions log is the **authoritative** short-form 
 
 ## Hardening (Phase 7)
 
-- [ ] **Fuzz the target parser** — Phase 7 explicit ask. `internal/target` — write Go 1.18+ fuzz targets for `Parse`, exclude parsing, and range math; run as part of CI.
-- [ ] **Signal handling semantics**. Ctrl-C cancels the context today (good) but does not explicitly "flush partial results" — the writer's `End()` runs because the result channel closes cleanly. Verify behaviour under mid-scan SIGINT with a large CIDR; confirm we emit everything we've collected rather than drop the in-flight partial batch.
-- [ ] **Race detector in CI**. Local `make test-race` is clean; add `-race` to the `.github/workflows/ci.yml` test step.
-- [ ] **`goreleaser` config + GitHub Releases workflow**. Cross-compile, checksums, tagged releases. Plan §7 / §9 Phase 7.
-- [ ] **Man page + docs site**. Plan §9 Phase 7. Either mdBook or a hand-written `docs/gscan.1` via `go-md2man`.
+- [x] **Fuzz the target parser**. Shipped 2026-04-23 — `internal/target/fuzz_test.go` covers `FuzzParse`, `FuzzParseExclude`, `FuzzParseRange`. CI runs each for 30s per push.
+- [x] **Signal handling semantics**. §10 #11. Scanner unconditionally sends on the results channel; `cli.runScan` drains until close. Regression test in `internal/cli/cancel_test.go`.
+- [x] **Race detector in CI**. `.github/workflows/ci.yml` now runs `go test -race ./...`.
+- [x] **`goreleaser` config + GitHub Releases workflow**. `.goreleaser.yaml` + `.github/workflows/release.yml` — see §10 #13.
+- [x] **Man page**. `cmd/gen-man` + `make man` → `docs/man/gscan.1`. §10 #12.
+- [ ] **Docs site**. Plan §9 Phase 7 explicitly mentions this. Options: mdBook, MkDocs, or just a `docs/` folder of hand-written Markdown served by GitHub Pages. Not blocking a v0.1.0 release.
 - [ ] **`setcap cap_net_raw+ep ./gscan`** install docs. Goes with Phase 6 SYN work.
+- [ ] **`goreleaser check` in CI**. Today the config is only validated at release time. Add a linter-style step to the PR CI that runs `goreleaser check` (or `goreleaser release --snapshot --clean`) so broken archives or build matrix changes surface before a tag.
 
 ## Config / UX
 
 - [ ] **Config file support** — §10 #6. Flags-only today. Add viper-backed `~/.config/gscan/config.yaml` (`%APPDATA%\gscan\` on Windows) only when the flag surface stabilizes and users ask.
 - [ ] **`--list-scripts`** subcommand or flag. Today the only way to see what scripts ship is `ls scripts/`; surface their `description` globals in `gscan --list-scripts`.
-- [ ] **Brand / final name** — §10 #1. `gscan` conflicts with an existing Homebrew formula; decide at release time whether to rename (e.g. `ripr`, `swiftscan`, `nibble`, `thump`) or namespace via a custom tap.
+- [ ] **Brand / final name** — §10 #1. `gscan` conflicts with an existing Homebrew formula; decide at release time whether to rename (e.g. `ripr`, `swiftscan`, `nibble`, `thump`) or namespace via a custom tap. Must be resolved **before** the first tagged release or the homebrew tap collision will bite users.
 
 ## Portability
 
 - [ ] **IPv6 scanning** (§10 #5). Parser accepts v6 from day one, but default TCP-connect behaviour against v6 hasn't been exercised end-to-end. Add an integration test that listens on `[::1]:port` and confirms the scanner reaches it. Verify Windows behaviour too.
-- [ ] **macOS build/test in CI**. CI matrix runs `ubuntu-latest` + `windows-latest`. macOS is reportedly fine via `GOOS=darwin` cross-compile but never gets tested. Add `macos-latest` once a contributor has a real machine to confirm.
+- [ ] **macOS build/test in CI**. CI matrix runs `ubuntu-latest` + `windows-latest`. macOS cross-compiles cleanly (verified during Phase 7), but is never tested. Add `macos-latest` to the CI matrix.
 
 ## Build System
 
 - [x] ~~`GO111MODULE=off` host default~~ — Makefile exports `on`, CI sets it, PowerShell script sets it. Documented.
 - [ ] **`go.mod` auto-upgrade on `go get`**. `go get <pkg>@latest` repeatedly bumps the module `go` directive to the installed toolchain (1.25 locally). Today handled by manual `go mod edit -go=1.22` after each add. Consider either pinning `GOTOOLCHAIN=go1.22.x` in the Makefile, or deciding to move the module to a newer minimum version.
 
+## Coverage Targets
+
+- [ ] **Lift `internal/script` coverage** above 70%. Currently 47.3% — see "Script tests" above.
+- [ ] **Lift `internal/progress` coverage** above 80%. Currently 68.8%; the TTY-detection path is impossible to hit in `go test` (stderr is never a TTY under `go test`). Split the TTY check into an injectable predicate and unit-test each branch of `New()`.
+- [ ] **Lift `internal/resolver` coverage** above 85%. Currently 70.8%. The `defaultLookup` wrapper is unit-untested because it calls into `net.DefaultResolver`; inject the lookup at the wrapper layer so tests can exercise the error-mapping path.
+
 ## Dependency Notes (for reviewers / future maintainers)
 
 - `github.com/spf13/cobra v1.10.2` — CLI.
+- `github.com/spf13/cobra/doc` — used only by `cmd/gen-man`, not in the shipped binary.
 - `golang.org/x/sync v0.10.0` — pinned older for Go 1.22 compatibility.
 - `github.com/charmbracelet/lipgloss v0.13.0` — pinned for Go 1.22 compatibility.
 - `github.com/schollz/progressbar/v3 v3.17.1` — stderr bar.
@@ -70,4 +79,4 @@ The `ip-scanner-plan.md` §10 decisions log is the **authoritative** short-form 
 
 ---
 
-_Last updated: 2026-04-23 (Phase 5 merge)._
+_Last updated: 2026-04-23 (Phase 7 merge)._

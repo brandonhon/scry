@@ -180,21 +180,29 @@ func runScan(ctx context.Context, it *target.Iterator, cfg portscan.Config, w ou
 		return err
 	}
 
+	// Drain the results channel even after ctx is cancelled so that every
+	// host already probed lands in the output. The producer reacts to ctx
+	// cancellation by refusing to launch new hosts but still flushes
+	// everything in flight before closing the channel.
 	results := portscan.Scan(ctx, it, cfg)
+	var writeErr error
 	for hr := range results {
-		if err := ctx.Err(); err != nil {
-			return err
+		if writeErr != nil {
+			continue // keep draining; skip further writes
 		}
 		if !sf.keepHost(hr) {
 			continue
 		}
 		if err := w.WriteHost(hr); err != nil {
-			return err
+			writeErr = err
 		}
 	}
 
-	if err := w.End(); err != nil {
-		return err
+	if err := w.End(); err != nil && writeErr == nil {
+		writeErr = err
+	}
+	if writeErr != nil {
+		return writeErr
 	}
 	return ctx.Err()
 }

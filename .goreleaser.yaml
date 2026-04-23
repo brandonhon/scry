@@ -1,0 +1,78 @@
+version: 2
+
+project_name: gscan
+
+before:
+  hooks:
+    - go mod tidy
+    - go run ./cmd/gen-man docs/man
+
+builds:
+  - id: gscan
+    main: ./cmd/gscan
+    binary: gscan
+    env:
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/bhoneycutt/gscan/internal/cli.Version={{ .Version }}
+
+archives:
+  - id: gscan
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - LICENSE
+      - README.md
+      - scripts/*.lua
+      - scripts/README.md
+      - docs/man/gscan.1
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - typo
+  groups:
+    - title: Features
+      regexp: "^feat"
+      order: 0
+    - title: Fixes
+      regexp: "^fix"
+      order: 1
+    - title: Other
+      order: 999
+
+release:
+  draft: true
+  prerelease: auto
+  footer: |
+    ---
+    Generated with [goreleaser](https://goreleaser.com).

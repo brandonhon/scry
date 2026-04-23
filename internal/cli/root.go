@@ -41,13 +41,15 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		scriptFiles     []string
 		scriptTimeout   time.Duration
 		synFlag         bool
+		listScriptsFlag bool
 	)
 
 	cmd := &cobra.Command{
 		Use:     "scry [TARGETS...]",
 		Short:   "Fast IP/port scanner",
 		Long:    "scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and optional banner grab.",
-		Args:    cobra.MinimumNArgs(1),
+		// Targets required unless --list-scripts is set.
+		Args: cobra.ArbitraryArgs,
 		Version: Version,
 		Example: `  scry 127.0.0.1 -p 22
   scry 192.168.1.0/24 -p top100 --up
@@ -55,6 +57,12 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
   scry 10.0.0.0/24 --sn               # host discovery only (alias for --ping-only)
   scry example.com -p- --timeout 300ms`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if listScriptsFlag {
+				return runListScripts(stdout, scriptFiles)
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("requires at least 1 target (or pass --list-scripts)")
+			}
 			if upFlag && downFlag {
 				return fmt.Errorf("--up and --down are mutually exclusive")
 			}
@@ -159,6 +167,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.StringSliceVar(&scriptFiles, "script", nil, "Lua script to run against open ports (repeatable)")
 	f.DurationVar(&scriptTimeout, "script-timeout", 5*time.Second, "Per-invocation timeout for --script")
 	f.BoolVar(&synFlag, "syn", false, "Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW)")
+	f.BoolVar(&listScriptsFlag, "list-scripts", false, "Print metadata for scripts passed via --script and exit")
 
 	return cmd
 }

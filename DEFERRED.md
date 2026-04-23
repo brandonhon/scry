@@ -18,7 +18,7 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 - [ ] **Rate limiter for SYN** (§5). Token-bucket pacer on the sender side (`--rate`, default 10000 pps). Today SYN sends as fast as goroutines fire.
 - [ ] **Adaptive rate limiter** (§5). Start conservative, ramp up under 2% error rate, back off on ICMP unreachables / connection-reset storms. Today `--concurrency` is a fixed cap.
   - Affects: `internal/ratelimit/` (new package, wired into `portscan.Scan`).
-- [ ] **`ulimit -n` check on Linux** (§5). Warn or raise early when user asks for high `--concurrency` but the process has a low fd limit.
+- [x] **`ulimit -n` check on Linux/macOS** (§5). `internal/cli/ulimit_unix.go` warns to stderr when `--concurrency` gets within 64 fds of the soft `RLIMIT_NOFILE`.
 
 ## Port Lists
 
@@ -46,19 +46,19 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 - [x] **`goreleaser` config + GitHub Releases workflow**. `.goreleaser.yaml` + `.github/workflows/release.yml` — see §10 #13.
 - [x] **Man page**. `cmd/gen-man` + `make man` → `docs/man/scry.1`. §10 #12.
 - [ ] **Docs site**. Plan §9 Phase 7 explicitly mentions this. Options: mdBook, MkDocs, or just a `docs/` folder of hand-written Markdown served by GitHub Pages. Not blocking a v0.1.0 release.
-- [ ] **`setcap cap_net_raw+ep ./scry`** install docs. Goes with Phase 6 SYN work.
-- [ ] **`goreleaser check` in CI**. Today the config is only validated at release time. Add a linter-style step to the PR CI that runs `goreleaser check` (or `goreleaser release --snapshot --clean`) so broken archives or build matrix changes surface before a tag.
+- [x] **`setcap cap_net_raw+ep ./scry`** install docs — documented in README "SYN scanning" section alongside Phase 6.
+- [x] **`goreleaser check` in CI**. `.github/workflows/ci.yml` now runs `goreleaser check` on every PR.
 
 ## Config / UX
 
 - [ ] **Config file support** — §10 #6. Flags-only today. Add viper-backed `~/.config/scry/config.yaml` (`%APPDATA%\scry\` on Windows) only when the flag surface stabilizes and users ask.
-- [ ] **`--list-scripts`** subcommand or flag. Today the only way to see what scripts ship is `ls scripts/`; surface their `description` globals in `scry --list-scripts`.
-- [ ] **Brand / final name** — §10 #1. `scry` conflicts with an existing Homebrew formula; decide at release time whether to rename (e.g. `ripr`, `swiftscan`, `nibble`, `thump`) or namespace via a custom tap. Must be resolved **before** the first tagged release or the homebrew tap collision will bite users.
+- [x] **`--list-scripts`** flag — ships, prints name/ports/description per `--script` file and exits without scanning. See `internal/cli/list_scripts.go`.
+- [x] **Brand / final name** — §10 #1. Renamed `gscan` → `scry` on 2026-04-23 to dodge the Homebrew collision.
 
 ## Portability
 
 - [ ] **IPv6 scanning** (§10 #5). Parser accepts v6 from day one, but default TCP-connect behaviour against v6 hasn't been exercised end-to-end. Add an integration test that listens on `[::1]:port` and confirms the scanner reaches it. Verify Windows behaviour too.
-- [ ] **macOS build/test in CI**. CI matrix runs `ubuntu-latest` + `windows-latest`. macOS cross-compiles cleanly (verified during Phase 7), but is never tested. Add `macos-latest` to the CI matrix.
+- [x] **macOS build/test in CI**. `macos-latest` added to the build-test matrix; same vet/race/build pipeline as Linux and Windows.
 
 ## Build System
 
@@ -68,8 +68,8 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 ## Coverage Targets
 
 - [ ] **Lift `internal/script` coverage** above 70%. Currently 47.3% — see "Script tests" above.
-- [ ] **Lift `internal/progress` coverage** above 80%. Currently 68.8%; the TTY-detection path is impossible to hit in `go test` (stderr is never a TTY under `go test`). Split the TTY check into an injectable predicate and unit-test each branch of `New()`.
-- [ ] **Lift `internal/resolver` coverage** above 85%. Currently 70.8%. The `defaultLookup` wrapper is unit-untested because it calls into `net.DefaultResolver`; inject the lookup at the wrapper layer so tests can exercise the error-mapping path.
+- [x] **Lift `internal/progress` coverage** — 68.8% → 87.5%. `isTTY` injected as a package-level var; tests now hit all three branches of `New()`.
+- [x] **Lift `internal/resolver` coverage** — 70.8% → 96.0%. `defaultLookup` + underlying `lookupAddr` both exposed as package-level vars for stubbing; error-mapping paths covered.
 
 ## Dependency Notes (for reviewers / future maintainers)
 
@@ -84,4 +84,4 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ---
 
-_Last updated: 2026-04-23 (Phase 6 merge)._
+_Last updated: 2026-04-23 (deferred-easy-wins sweep)._

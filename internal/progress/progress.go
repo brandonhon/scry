@@ -32,13 +32,19 @@ type Reporter interface {
 // NewNoop returns a Reporter that discards all updates.
 func NewNoop() Reporter { return noop{} }
 
+// isTTY is overridable for tests. Default probes os.Stderr.
+var isTTY = func() bool {
+	fd := os.Stderr.Fd()
+	return isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd)
+}
+
 // New returns a stderr-backed bar when stderr is a TTY, otherwise Noop.
 // Options:
 //   - description shown before the bar (e.g., "scanning")
 //   - force: when true, emit the bar even if stderr is not a TTY (useful
 //     for tests / logs). force=false is the normal runtime path.
 func New(description string, force bool) Reporter {
-	if !force && !stderrIsTTY() {
+	if !force && !isTTY() {
 		return noop{}
 	}
 	return newBar(os.Stderr, description)
@@ -49,10 +55,6 @@ func NewFor(w io.Writer, description string) Reporter {
 	return newBar(w, description)
 }
 
-func stderrIsTTY() bool {
-	fd := os.Stderr.Fd()
-	return isatty.IsTerminal(fd) || isatty.IsCygwinTerminal(fd)
-}
 
 // -- no-op implementation -----------------------------------------------------
 

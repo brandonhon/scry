@@ -81,9 +81,11 @@ func (c *Cache) Lookup(ctx context.Context, addr netip.Addr) (string, error) {
 	return e.name, e.err
 }
 
-// defaultLookup wraps net.DefaultResolver.LookupAddr.
-func defaultLookup(ctx context.Context, addr netip.Addr) (string, error) {
-	names, err := net.DefaultResolver.LookupAddr(ctx, addr.String())
+// defaultLookup wraps net.DefaultResolver.LookupAddr. Exposed as a
+// function-typed var so tests can stub the concrete PTR call without
+// hitting the network.
+var defaultLookup = func(ctx context.Context, addr netip.Addr) (string, error) {
+	names, err := lookupAddr(ctx, addr.String())
 	if err != nil {
 		return "", err
 	}
@@ -91,4 +93,11 @@ func defaultLookup(ctx context.Context, addr netip.Addr) (string, error) {
 		return "", errors.New("no PTR records")
 	}
 	return names[0], nil
+}
+
+// lookupAddr is a package-level seam so unit tests can mock the raw
+// network call while still exercising the surrounding error-mapping
+// logic in defaultLookup.
+var lookupAddr = func(ctx context.Context, addr string) ([]string, error) {
+	return net.DefaultResolver.LookupAddr(ctx, addr)
 }

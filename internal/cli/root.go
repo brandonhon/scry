@@ -13,6 +13,7 @@ import (
 	"github.com/bhoneycutt/gscan/internal/portscan"
 	"github.com/bhoneycutt/gscan/internal/progress"
 	"github.com/bhoneycutt/gscan/internal/resolver"
+	"github.com/bhoneycutt/gscan/internal/script"
 	"github.com/bhoneycutt/gscan/internal/target"
 )
 
@@ -37,6 +38,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		noDNSFlag       bool
 		bannerFlag      bool
 		noProgressFlag  bool
+		scriptFiles     []string
+		scriptTimeout   time.Duration
 	)
 
 	cmd := &cobra.Command{
@@ -87,6 +90,19 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 				dns = resolver.New(resolver.Options{})
 			}
 
+			var scriptEngine *script.Engine
+			if len(scriptFiles) > 0 {
+				scripts := make([]*script.Script, 0, len(scriptFiles))
+				for _, f := range scriptFiles {
+					s, err := script.Load(f)
+					if err != nil {
+						return err
+					}
+					scripts = append(scripts, s)
+				}
+				scriptEngine = script.NewEngine(scripts, scriptTimeout)
+			}
+
 			// Progress on stderr only when stderr is a TTY and the user
 			// didn't opt out. Piped JSON/grep stays clean.
 			var rep progress.Reporter
@@ -97,15 +113,16 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 			}
 
 			cfg := portscan.Config{
-				Ports:       ports,
-				Timeout:     timeoutFlag,
-				Retries:     retriesFlag,
-				Concurrency: concurrencyFlag,
-				HostParall:  hostParallFlag,
-				PingOnly:    pingOnlyFlag,
-				Banner:      bannerFlag,
-				Progress:    rep,
-				Resolver:    dns,
+				Ports:        ports,
+				Timeout:      timeoutFlag,
+				Retries:      retriesFlag,
+				Concurrency:  concurrencyFlag,
+				HostParall:   hostParallFlag,
+				PingOnly:     pingOnlyFlag,
+				Banner:       bannerFlag,
+				Progress:     rep,
+				Resolver:     dns,
+				ScriptEngine: scriptEngine,
 			}
 
 			writer := output.New(format, stdout, output.Options{
@@ -138,6 +155,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.BoolVar(&noDNSFlag, "no-dns", false, "Skip reverse DNS lookups")
 	f.BoolVar(&bannerFlag, "banner", false, "Grab a short service banner on open ports")
 	f.BoolVar(&noProgressFlag, "no-progress", false, "Disable the stderr progress bar")
+	f.StringSliceVar(&scriptFiles, "script", nil, "Lua script to run against open ports (repeatable)")
+	f.DurationVar(&scriptTimeout, "script-timeout", 5*time.Second, "Per-invocation timeout for --script")
 
 	return cmd
 }

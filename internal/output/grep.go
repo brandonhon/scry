@@ -37,7 +37,14 @@ func (g *grepWriter) WriteHost(hr portscan.HostResult) error {
 		if svc == "" {
 			svc = "-"
 		}
-		parts = append(parts, fmt.Sprintf("%d/%s/%s", r.Port, r.State, svc))
+		entry := fmt.Sprintf("%d/%s/%s", r.Port, r.State, svc)
+		for _, f := range r.Findings {
+			// Escape any commas/spaces in script output so the outer comma
+			// join stays unambiguous; replace with a middle dot.
+			clean := strings.ReplaceAll(strings.ReplaceAll(f.Output, ",", " "), "\t", " ")
+			entry += fmt.Sprintf("[%s=%s]", f.Script, clean)
+		}
+		parts = append(parts, entry)
 	}
 	ports := strings.Join(parts, ",")
 	if ports == "" {

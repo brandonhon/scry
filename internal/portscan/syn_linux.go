@@ -55,7 +55,11 @@ func SynScan(ctx context.Context, it *target.Iterator, cfg Config) (<-chan HostR
 		rep = progress.NewNoop()
 	}
 	if total, ok := it.Total(); ok {
-		rep.SetTotal(int64(total))
+		unit := int64(1)
+		if len(cfg.Ports) > 0 {
+			unit = int64(len(cfg.Ports))
+		}
+		rep.SetTotal(int64(total) * unit)
 	}
 
 	state, cleanup, err := setupSYN(ctx, cfg.Timeout)
@@ -128,13 +132,17 @@ loop:
 			break loop
 		}
 		if !addr.Is4() {
-			// IPv6 is deferred (DEFERRED.md). Report via an error result.
+			// IPv6 is deferred (DEFERRED.md). Report via an error result
+			// and count the whole host's worth of ports as done so the
+			// progress bar still completes.
 			res := HostResult{
 				Addr:    addr,
 				Started: time.Now(),
 				Results: []Result{{Addr: addr, State: StateError, Err: errors.New("SYN scan supports IPv4 only in this build")}},
 			}
-			rep.Tick()
+			for range cfg.Ports {
+				rep.Tick()
+			}
 			out <- res
 			continue
 		}
@@ -143,8 +151,7 @@ loop:
 		go func(addr netip.Addr) {
 			defer wg.Done()
 			defer func() { <-hostSem }()
-			hr := scanHostSYN(ctx, state, addr, cfg)
-			rep.Tick()
+			hr := scanHostSYN(ctx, state, addr, cfg, rep)
 			out <- hr
 		}(addr)
 	}
@@ -155,7 +162,7 @@ loop:
 // scanHostSYN probes every configured port on one host. Each port gets
 // its own ephemeral source port (basePort + atomic index) so responses
 // can be demultiplexed in the receiver without a bloom-style filter.
-func scanHostSYN(ctx context.Context, st *scanState, dst netip.Addr, cfg Config) HostResult {
+func scanHostSYN(ctx context.Context, st *scanState, dst netip.Addr, cfg Config, rep progress.Reporter) HostResult {
 	start := time.Now()
 	hr := HostResult{Addr: dst, Started: start}
 
@@ -165,6 +172,7 @@ func scanHostSYN(ctx context.Context, st *scanState, dst netip.Addr, cfg Config)
 		wg.Add(1)
 		go func(port uint16) {
 			defer wg.Done()
+			defer rep.Tick()
 			res := synProbe(ctx, st, dst, port, cfg.Timeout)
 			mu.Lock()
 			hr.Results = append(hr.Results, res)

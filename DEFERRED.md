@@ -8,10 +8,14 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ## Scanning / Protocols
 
-- [ ] **ICMP echo discovery** — §10 #7. Currently TCP-only. Plan: ship under `-tags rawsock` alongside Phase 6 SYN. Needs `SOCK_DGRAM` path on Linux (via `golang.org/x/net/icmp`) and Npcap-based path on Windows, with a clear error + fallback when privileges aren't present.
+- [ ] **ICMP echo discovery** — §10 #7. Currently TCP-only. Plan: ship under `-tags rawsock` alongside the SYN scanner. Needs `SOCK_DGRAM` path on Linux (via `golang.org/x/net/icmp`) and Npcap-based path on Windows, with a clear error + fallback when privileges aren't present.
   - Affects: `internal/discovery/discovery.go`, a new `icmp_*.go` file pair.
-- [ ] **SYN scan** — Phase 6. gopacket + libpcap/Npcap, sender/receiver goroutines, (srcIP, srcPort, seq) state table, token-bucket pacer (`--rate`), single retransmit on filtered.
-  - Affects: `internal/portscan/syn_linux.go`, `syn_windows.go`, build tag `rawsock`.
+- [x] **SYN scan (Linux)** — Shipped 2026-04-23. `internal/portscan/syn_linux.go` via gopacket + libpcap under `-tags rawsock`. §10 #15/#16.
+- [ ] **SYN scan (Windows)** — §10 #15. Needs Npcap + the same pipeline under `rawsock && windows`. Installer docs must mention WinPcap-compat mode. `syn_other.go` is the placeholder.
+- [ ] **SYN scan (IPv6)** — §10 #15. Today `syn_linux.go` errors on any non-IPv4 target with `SYN scan supports IPv4 only in this build`. Needs `layers.IPv6` serialisation + BPF filter update (`ip or ip6`).
+- [ ] **ARP / gateway MAC lookup for SYN** — §10 #16. Today the Ethernet frame uses a broadcast DST MAC (`ff:ff:ff:ff:ff:ff`). Works in some environments but fails in others. Proper fix: resolve dst MAC via ARP for on-link targets, default-gateway MAC for off-link. Affects `setupSYN` in `syn_linux.go`.
+- [ ] **Loopback / WSL2 routability for SYN**. Verified during Phase 6 that SYN scans against loopback and against WSL2's virtualised adapter both fail (pcap routing / interface selection limitations), not a scanner bug. Document in README install section so users don't hit it blind. The opt-in end-to-end test behind `SCRY_RUN_SYN_TESTS=1` should be run against a real adjacent host.
+- [ ] **Rate limiter for SYN** (§5). Token-bucket pacer on the sender side (`--rate`, default 10000 pps). Today SYN sends as fast as goroutines fire.
 - [ ] **Adaptive rate limiter** (§5). Start conservative, ramp up under 2% error rate, back off on ICMP unreachables / connection-reset storms. Today `--concurrency` is a fixed cap.
   - Affects: `internal/ratelimit/` (new package, wired into `portscan.Scan`).
 - [ ] **`ulimit -n` check on Linux** (§5). Warn or raise early when user asks for high `--concurrency` but the process has a low fd limit.
@@ -69,6 +73,7 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ## Dependency Notes (for reviewers / future maintainers)
 
+- `github.com/google/gopacket v1.1.19` — SYN packet construction + pcap handle. Linked only under `-tags rawsock`; requires libpcap headers at build time.
 - `github.com/spf13/cobra v1.10.2` — CLI.
 - `github.com/spf13/cobra/doc` — used only by `cmd/gen-man`, not in the shipped binary.
 - `golang.org/x/sync v0.10.0` — pinned older for Go 1.22 compatibility.
@@ -79,4 +84,4 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ---
 
-_Last updated: 2026-04-23 (Phase 7 merge)._
+_Last updated: 2026-04-23 (Phase 6 merge)._

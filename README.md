@@ -6,16 +6,18 @@ This is the working name. See [`scry-plan.md`](./scry-plan.md) for the full proj
 
 ## Status
 
-Phase 7 (hardening). Parser fuzz targets, race detector in CI, partial-result flush on SIGINT, `make man` (checked-in `docs/man/scry.1`), goreleaser config, tag-triggered release workflow.
+All seven phases merged. Default build is CGO-free and privilege-free; the raw-socket SYN scanner is available under `-tags rawsock` on Linux.
 
-Earlier phases in order:
+Phases in order:
 1. Target parsing (IPv4+IPv6, ranges, CIDR, hostnames, `@file`).
 2. Bounded-concurrency TCP-connect scanner; full `-p` syntax with `top100`/`top1000`/`-p-`.
 3. Three output formats: `human` (lipgloss), `json` (NDJSON), `grep`; colour auto-detection.
 4. Host discovery (`--ping-only`/`--sn`), reverse DNS, banner grab, stderr progress bar.
 5. Lua scripting engine (`--script`) with a curated `scry.*` API and four bundled scripts.
+6. Raw-socket SYN scanner under `-tags rawsock` (Linux). See [SYN scanning](#syn-scanning).
+7. Hardening: parser fuzz targets, race detector in CI, partial-result flush on SIGINT, man page, goreleaser.
 
-Phase 6 (SYN scan + ICMP, raw sockets under `-tags rawsock`) is queued in [`DEFERRED.md`](./DEFERRED.md) and is intentionally left for after v0.1.0 so the shipping binary stays CGO- and privilege-free.
+ICMP echo and the Windows Npcap path for SYN are tracked in [`DEFERRED.md`](./DEFERRED.md).
 
 ## Build
 
@@ -56,6 +58,22 @@ scry 10.0.0.0/24 -p 22,80,443,6379 \
 ```
 
 See [`scripts/README.md`](./scripts/README.md) for the `scry.*` API surface and script anatomy.
+
+## SYN scanning
+
+SYN scanning is build-tag gated so the default binary has no libpcap dependency. To enable it:
+
+```sh
+# Linux
+sudo apt install libpcap-dev                              # or: dnf install libpcap-devel
+go build -tags rawsock -o bin/scry ./cmd/scry
+sudo setcap cap_net_raw,cap_net_admin=eip bin/scry        # grant privileges without root
+./bin/scry 10.0.0.0/24 -p top100 --syn
+```
+
+`--syn` on the default binary prints a clean error telling you to rebuild. Loopback and WSL2 virtual adapters are known not to route SYN packets correctly through pcap; use a real adjacent host for verification.
+
+Deferred: Windows Npcap path, IPv6 SYN, ARP/gateway MAC resolution, token-bucket `--rate` pacing. See [`DEFERRED.md`](./DEFERRED.md).
 
 ### Output formats
 

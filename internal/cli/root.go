@@ -42,6 +42,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		scriptTimeout   time.Duration
 		synFlag         bool
 		listScriptsFlag bool
+		rateFlag        int
+		adaptiveFlag    bool
 	)
 
 	cmd := &cobra.Command{
@@ -134,6 +136,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 				Progress:     rep,
 				Resolver:     dns,
 				ScriptEngine: scriptEngine,
+				Rate:         rateFlag,
+				Adaptive:     adaptiveFlag,
 			}
 
 			writer := output.New(format, stdout, output.Options{
@@ -168,8 +172,10 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.BoolVar(&noProgressFlag, "no-progress", false, "Disable the stderr progress bar")
 	f.StringSliceVar(&scriptFiles, "script", nil, "Lua script to run against open ports (repeatable)")
 	f.DurationVar(&scriptTimeout, "script-timeout", 5*time.Second, "Per-invocation timeout for --script")
-	f.BoolVar(&synFlag, "syn", false, "Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW)")
+	f.BoolVar(&synFlag, "syn", false, "Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW; cannot scan loopback or WSL2)")
 	f.BoolVar(&listScriptsFlag, "list-scripts", false, "Print metadata for scripts passed via --script and exit")
+	f.IntVar(&rateFlag, "rate", 10000, "Max SYN packets per second (--syn only; 0 = unlimited)")
+	f.BoolVar(&adaptiveFlag, "adaptive", false, "Adapt SYN send rate to probe error-rate (start at --rate/4, scale to --rate)")
 
 	return cmd
 }

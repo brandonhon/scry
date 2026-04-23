@@ -84,7 +84,13 @@ sudo setcap cap_net_raw,cap_net_admin=eip bin/scry        # grant privileges wit
 ./bin/scry 10.0.0.0/24 -p top100 --syn
 ```
 
-`--syn` on the default binary prints a clean error telling you to rebuild. Loopback and WSL2 virtual adapters are known not to route SYN packets correctly through pcap; use a real adjacent host for verification.
+`--syn` on the default binary prints a clean error telling you to rebuild.
+
+### Known pcap limitations
+
+- **Loopback (`127.0.0.0/8`)**: Linux kernel-internal routing bypasses pcap's interface-level capture. A SYN sent from pcap will never appear on `lo`, and an open port on `127.0.0.1` will look filtered. Use TCP-connect mode (default) for loopback scans.
+- **WSL2**: the virtualised network adapter breaks the same pcap interface assumptions. Neither loopback nor the WSL2 `eth0` route SYN packets correctly through libpcap. Run SYN scans from a real Linux host (bare-metal, VM with bridged networking, or a cloud instance).
+- **Off-link targets**: scry resolves the default gateway's MAC via ARP when sending to hosts outside the local subnet. If that lookup fails the Ethernet frame falls back to broadcast — you'll see a one-time stderr warning. Running with `setcap cap_net_raw,cap_net_admin=eip` is usually what fixes it.
 
 Deferred: Windows Npcap path, IPv6 SYN, ARP/gateway MAC resolution, token-bucket `--rate` pacing. See [`DEFERRED.md`](./DEFERRED.md).
 

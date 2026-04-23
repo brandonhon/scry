@@ -21,9 +21,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"net/netip"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,6 +35,7 @@ import (
 	"github.com/google/gopacket/pcap"
 
 	"github.com/bhoneycutt/scry/internal/progress"
+	"github.com/bhoneycutt/scry/internal/ratelimit"
 	"github.com/bhoneycutt/scry/internal/target"
 )
 
@@ -62,7 +65,7 @@ func SynScan(ctx context.Context, it *target.Iterator, cfg Config) (<-chan HostR
 		rep.SetTotal(int64(total) * unit)
 	}
 
-	state, cleanup, err := setupSYN(ctx, cfg.Timeout)
+	state, cleanup, err := setupSYN(ctx, cfg.Timeout, cfg.Rate, cfg.Adaptive)
 	if err != nil {
 		return nil, err
 	}
@@ -87,11 +90,35 @@ type scanState struct {
 	waiters  map[probeKey]*probeWaiter
 	srcIP    net.IP
 	srcMAC   net.HardwareAddr
-	dstMAC   net.HardwareAddr // gateway MAC for off-link dsts; same-subnet is rare in practice
+	srcNet   *net.IPNet // subnet of srcIP for on-link detection
 	iface    string
 	handle   *pcap.Handle
 	basePort uint16 // ephemeral base; each probe uses basePort + portIdx++
 	portIdx  uint32
+	limiter  *ratelimit.Limiter
+	adaptive *ratelimit.Adaptive
+
+	macMu     sync.Mutex
+	macByDst  map[netip.Addr]net.HardwareAddr
+	bcastWarn sync.Once
+	warnW     io.Writer
+}
+
+// waitForToken pulls one token from whichever pacer is active.
+func (st *scanState) waitForToken(ctx context.Context) error {
+	if st.adaptive != nil {
+		return st.adaptive.Wait(ctx)
+	}
+	return st.limiter.Wait(ctx)
+}
+
+// reportProbe feeds probe outcomes back into the adaptive limiter.
+func (st *scanState) reportProbe(state State) {
+	if st.adaptive == nil {
+		return
+	}
+	isErr := state == StateFiltered || state == StateError
+	st.adaptive.ReportProbe(isErr)
 }
 
 type probeKey struct {
@@ -130,21 +157,6 @@ loop:
 		addr, ok := it.Next()
 		if !ok {
 			break loop
-		}
-		if !addr.Is4() {
-			// IPv6 is deferred (DEFERRED.md). Report via an error result
-			// and count the whole host's worth of ports as done so the
-			// progress bar still completes.
-			res := HostResult{
-				Addr:    addr,
-				Started: time.Now(),
-				Results: []Result{{Addr: addr, State: StateError, Err: errors.New("SYN scan supports IPv4 only in this build")}},
-			}
-			for range cfg.Ports {
-				rep.Tick()
-			}
-			out <- res
-			continue
 		}
 		hostSem <- struct{}{}
 		wg.Add(1)
@@ -203,6 +215,9 @@ func synProbe(ctx context.Context, st *scanState, dst netip.Addr, port uint16, t
 			st.mu.Unlock()
 		}()
 
+		if err := st.waitForToken(ctx); err != nil {
+			return probeOutcome{state: StateError}
+		}
 		if err := st.sendSYN(dst, port, srcPort); err != nil {
 			return probeOutcome{state: StateError}
 		}
@@ -222,6 +237,7 @@ func synProbe(ctx context.Context, st *scanState, dst netip.Addr, port uint16, t
 	}
 	res.State = out.state
 	res.RTT = out.rtt
+	st.reportProbe(out.state)
 	return res
 }
 
@@ -242,20 +258,29 @@ func receiveLoop(ctx context.Context, st *scanState) {
 	}
 }
 
-// parseAndDispatch extracts an IPv4+TCP layer from pkt; if it matches a
+// parseAndDispatch extracts a v4/v6 TCP reply from pkt; if it matches a
 // waiter, classifies and notifies.
 func parseAndDispatch(pkt gopacket.Packet, st *scanState) {
-	ipL := pkt.Layer(layers.LayerTypeIPv4)
 	tcpL := pkt.Layer(layers.LayerTypeTCP)
-	if ipL == nil || tcpL == nil {
+	if tcpL == nil {
 		return
 	}
-	ip := ipL.(*layers.IPv4)
 	tcp := tcpL.(*layers.TCP)
 
-	// The reply's src is the probe's dst.
-	srcAddr, ok := netip.AddrFromSlice(ip.SrcIP.To4())
-	if !ok {
+	var srcAddr netip.Addr
+	if ipL := pkt.Layer(layers.LayerTypeIPv4); ipL != nil {
+		a, ok := netip.AddrFromSlice(ipL.(*layers.IPv4).SrcIP.To4())
+		if !ok {
+			return
+		}
+		srcAddr = a
+	} else if ipL := pkt.Layer(layers.LayerTypeIPv6); ipL != nil {
+		a, ok := netip.AddrFromSlice(ipL.(*layers.IPv6).SrcIP.To16())
+		if !ok {
+			return
+		}
+		srcAddr = a
+	} else {
 		return
 	}
 	key := makeKey(uint16(tcp.DstPort), srcAddr, uint16(tcp.SrcPort))
@@ -295,11 +320,15 @@ func (st *scanState) allocSrcPort() uint16 {
 	return st.basePort + uint16(n&0x3FFF)
 }
 
-// sendSYN crafts and emits a single SYN on the pcap handle.
+// sendSYN crafts and emits a single SYN on the pcap handle. Dispatches
+// to the v4 or v6 frame builder based on the destination family.
 func (st *scanState) sendSYN(dst netip.Addr, dstPort, srcPort uint16) error {
+	if dst.Is6() && !dst.Is4In6() {
+		return st.sendSYNv6(dst, dstPort, srcPort)
+	}
 	eth := layers.Ethernet{
 		SrcMAC:       st.srcMAC,
-		DstMAC:       st.dstMAC,
+		DstMAC:       st.dstMACFor(dst),
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := layers.IPv4{
@@ -334,7 +363,7 @@ func (st *scanState) sendSYN(dst netip.Addr, dstPort, srcPort uint16) error {
 // scans are on the same broadcast domain where we can resolve the dst MAC
 // via ARP lookups (not yet wired); for off-link we'd need a default-gateway
 // lookup. Future work: see DEFERRED.md.
-func setupSYN(ctx context.Context, timeout time.Duration) (*scanState, func(), error) {
+func setupSYN(ctx context.Context, timeout time.Duration, rps int, adaptive bool) (*scanState, func(), error) {
 	iface, srcIP, srcMAC, err := pickInterface()
 	if err != nil {
 		return nil, nil, err
@@ -343,27 +372,79 @@ func setupSYN(ctx context.Context, timeout time.Duration) (*scanState, func(), e
 	if err != nil {
 		return nil, nil, fmt.Errorf("pcap open %s: %w (need CAP_NET_RAW or root)", iface, err)
 	}
-	if err := h.SetBPFFilter("tcp"); err != nil {
+	if err := h.SetBPFFilter("tcp or ip6 proto 6"); err != nil {
 		h.Close()
 		return nil, nil, fmt.Errorf("bpf filter: %w", err)
+	}
+	burst := rps
+	if burst > 1000 {
+		burst = 1000 // cap the burst so long scans don't launch a huge lead
 	}
 	st := &scanState{
 		waiters:  make(map[probeKey]*probeWaiter, 1024),
 		srcIP:    srcIP,
 		srcMAC:   srcMAC,
-		dstMAC:   net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, // broadcast placeholder
+		srcNet:   srcSubnet(iface, srcIP),
 		iface:    iface,
 		handle:   h,
 		basePort: 40000 + uint16(rand.Intn(10000)), //nolint:gosec
+		macByDst: make(map[netip.Addr]net.HardwareAddr, 64),
+		warnW:    os.Stderr,
+	}
+	if adaptive && rps > 0 {
+		start := rps / 4
+		if start < 100 {
+			start = 100
+		}
+		st.adaptive = ratelimit.NewAdaptive(start, rps)
+	} else {
+		st.limiter = ratelimit.New(rps, burst)
 	}
 	return st, func() { h.Close() }, nil
 }
 
+// dstMACFor returns the correct L2 destination for the given IP,
+// caching the result per scanState. Unresolved targets fall back to
+// broadcast and emit a one-time stderr warning.
+func (st *scanState) dstMACFor(dst netip.Addr) net.HardwareAddr {
+	st.macMu.Lock()
+	if mac, ok := st.macByDst[dst]; ok {
+		st.macMu.Unlock()
+		return mac
+	}
+	st.macMu.Unlock()
+
+	mac, authoritative, err := resolveDstMAC(st.iface, st.srcNet, dst)
+	if !authoritative {
+		st.bcastWarn.Do(func() {
+			reason := "no error"
+			if err != nil {
+				reason = err.Error()
+			}
+			_, _ = fmt.Fprintf(st.warnW,
+				"warning: could not resolve dst MAC (%s); falling back to broadcast. Results may be unreliable — scan may need root or adjacent network.\n",
+				reason)
+		})
+	}
+	st.macMu.Lock()
+	st.macByDst[dst] = mac
+	st.macMu.Unlock()
+	return mac
+}
+
+// pickInterface returns the first non-loopback up interface that has
+// an IPv4 address (preferred) or an IPv6 global address. Returns the
+// chosen interface name, its bound IP (v4 if available, else v6), and
+// hardware address. Callers that specifically need v6 should pre-check
+// the target family; today v4 is preferred so v4 scans stay cheap.
 func pickInterface() (string, net.IP, net.HardwareAddr, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return "", nil, nil, err
 	}
+	var v6Name string
+	var v6IP net.IP
+	var v6MAC net.HardwareAddr
 	for _, ifc := range ifaces {
 		if ifc.Flags&net.FlagLoopback != 0 || ifc.Flags&net.FlagUp == 0 {
 			continue
@@ -371,13 +452,23 @@ func pickInterface() (string, net.IP, net.HardwareAddr, error) {
 		addrs, _ := ifc.Addrs()
 		for _, a := range addrs {
 			ipn, ok := a.(*net.IPNet)
-			if !ok || ipn.IP.To4() == nil {
+			if !ok {
 				continue
 			}
-			return ifc.Name, ipn.IP, ifc.HardwareAddr, nil
+			if v4 := ipn.IP.To4(); v4 != nil {
+				return ifc.Name, v4, ifc.HardwareAddr, nil
+			}
+			if v6Name == "" && ipn.IP.IsGlobalUnicast() && ipn.IP.To16() != nil {
+				v6Name = ifc.Name
+				v6IP = ipn.IP
+				v6MAC = ifc.HardwareAddr
+			}
 		}
 	}
-	return "", nil, nil, errors.New("no non-loopback IPv4 interface found")
+	if v6Name != "" {
+		return v6Name, v6IP, v6MAC, nil
+	}
+	return "", nil, nil, errors.New("no non-loopback IPv4 or IPv6 interface found")
 }
 
 // Silence unused-import lints when building without the binary package.

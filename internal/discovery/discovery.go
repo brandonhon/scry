@@ -54,6 +54,7 @@ func Ping(ctx context.Context, addr netip.Addr, cfg Config) Result {
 		timeout = 800 * time.Millisecond
 	}
 
+
 	probeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -62,9 +63,22 @@ func Ping(ctx context.Context, addr netip.Addr, cfg Config) Result {
 		rtt  time.Duration
 		via  string
 	}
-	results := make(chan outcome, len(ports))
+	results := make(chan outcome, len(ports)+1)
 
 	var wg sync.WaitGroup
+	// ICMP Echo races alongside the TCP probes (rawsock builds only).
+	if icmpAvailable {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if up, rtt, via := pingICMP(probeCtx, addr, timeout); up {
+				select {
+				case results <- outcome{up: true, rtt: rtt, via: via}:
+				default:
+				}
+			}
+		}()
+	}
 	for _, p := range ports {
 		wg.Add(1)
 		go func(port uint16) {
@@ -92,19 +106,20 @@ func Ping(ctx context.Context, addr netip.Addr, cfg Config) Result {
 		}(p)
 	}
 
+	done := make(chan struct{})
 	go func() {
 		wg.Wait()
-		close(results)
+		close(done)
 	}()
 
-	first, ok := <-results
-	if !ok {
+	select {
+	case first := <-results:
+		// Got a positive answer; cancel the other goroutines and return
+		// immediately without waiting for their cleanup.
+		cancel()
+		return Result{Up: first.up, RTT: first.rtt, Via: first.via}
+	case <-done:
+		// All probes finished without a positive result.
 		return Result{}
 	}
-	// Cancel remaining probes now that we have a verdict.
-	cancel()
-	// Drain.
-	for range results {
-	}
-	return Result{Up: first.up, RTT: first.rtt, Via: first.via}
 }

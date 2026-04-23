@@ -37,17 +37,27 @@ func parseToken(tok string, opts *Options, it *Iterator) error {
 		if err != nil {
 			return fmt.Errorf("target %q: %w", tok, err)
 		}
+		if err := requireIPv4(p.Addr(), tok); err != nil {
+			return err
+		}
 		it.appendSource(newCIDRSource(p))
 		return nil
 	}
 
 	if addr, err := netip.ParseAddr(tok); err == nil {
-		it.appendSource(&singleSource{addr: addr.Unmap()})
+		addr = addr.Unmap()
+		if err := requireIPv4(addr, tok); err != nil {
+			return err
+		}
+		it.appendSource(&singleSource{addr: addr})
 		return nil
 	}
 
 	if strings.Contains(tok, "-") {
 		if rng, ok := parseRange(tok); ok {
+			if err := requireIPv4(rng.start, tok); err != nil {
+				return err
+			}
 			it.appendSource(newRangeSource(rng.start, rng.end))
 			return nil
 		}
@@ -58,15 +68,29 @@ func parseToken(tok string, opts *Options, it *Iterator) error {
 	if err != nil {
 		return fmt.Errorf("target %q: resolve: %w", tok, err)
 	}
-	if len(addrs) == 0 {
-		return fmt.Errorf("target %q: resolved to zero addresses", tok)
-	}
 	normalized := make([]netip.Addr, 0, len(addrs))
 	for _, a := range addrs {
-		normalized = append(normalized, a.Unmap())
+		a = a.Unmap()
+		if !a.Is4() {
+			continue // drop v6 resolutions; scry is IPv4-only in scope today
+		}
+		normalized = append(normalized, a)
+	}
+	if len(normalized) == 0 {
+		return fmt.Errorf("target %q: no IPv4 addresses resolved (scry is IPv4-only; see scry-plan.md §10 #22)", tok)
 	}
 	it.appendSource(newSliceSource(normalized))
 	return nil
+}
+
+// requireIPv4 rejects any non-v4 address with a clear, actionable error
+// pointing users at the IPv6-support branch. scry is IPv4-only in scope
+// until that work returns to main; see plan §10 #22.
+func requireIPv4(a netip.Addr, tok string) error {
+	if a.Is4() || a.Is4In6() {
+		return nil
+	}
+	return fmt.Errorf("target %q: IPv6 is not supported in this release (scry is IPv4-only; IPv6 work lives on the feat/ipv6-support branch, see scry-plan.md §10 #22)", tok)
 }
 
 // parseFileToken reads path and parses each non-blank non-comment line as a
@@ -197,13 +221,22 @@ func parseExclude(tok string) (addrRange, error) {
 			return addrRange{}, fmt.Errorf("exclude %q: %w", tok, err)
 		}
 		p = p.Masked()
+		if err := requireIPv4(p.Addr(), tok); err != nil {
+			return addrRange{}, err
+		}
 		return addrRange{start: p.Addr(), end: lastInPrefix(p)}, nil
 	}
 	if addr, err := netip.ParseAddr(tok); err == nil {
 		addr = addr.Unmap()
+		if err := requireIPv4(addr, tok); err != nil {
+			return addrRange{}, err
+		}
 		return addrRange{start: addr, end: addr}, nil
 	}
 	if r, ok := parseRange(tok); ok {
+		if err := requireIPv4(r.start, tok); err != nil {
+			return addrRange{}, err
+		}
 		return r, nil
 	}
 	return addrRange{}, fmt.Errorf("exclude %q: not a valid single/range/CIDR", tok)

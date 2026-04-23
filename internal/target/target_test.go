@@ -61,18 +61,6 @@ func TestParse_Forms(t *testing.T) {
 			total: 1,
 		},
 		{
-			name:  "single IPv6",
-			spec:  "2001:db8::1",
-			want:  addrs(t, "2001:db8::1"),
-			total: 1,
-		},
-		{
-			name:  "IPv6 loopback",
-			spec:  "::1",
-			want:  addrs(t, "::1"),
-			total: 1,
-		},
-		{
 			name:  "last-octet range",
 			spec:  "192.168.1.10-12",
 			want:  addrs(t, "192.168.1.10", "192.168.1.11", "192.168.1.12"),
@@ -91,12 +79,6 @@ func TestParse_Forms(t *testing.T) {
 			total: 4,
 		},
 		{
-			name:  "arbitrary IPv6 range",
-			spec:  "2001:db8::1-2001:db8::3",
-			want:  addrs(t, "2001:db8::1", "2001:db8::2", "2001:db8::3"),
-			total: 3,
-		},
-		{
 			name:  "IPv4 CIDR /30",
 			spec:  "192.168.1.0/30",
 			want:  addrs(t, "192.168.1.0", "192.168.1.1", "192.168.1.2", "192.168.1.3"),
@@ -109,21 +91,9 @@ func TestParse_Forms(t *testing.T) {
 			total: 4,
 		},
 		{
-			name:  "IPv6 CIDR /126",
-			spec:  "2001:db8::/126",
-			want:  addrs(t, "2001:db8::", "2001:db8::1", "2001:db8::2", "2001:db8::3"),
-			total: 4,
-		},
-		{
 			name:  "single-host /32",
 			spec:  "10.0.0.1/32",
 			want:  addrs(t, "10.0.0.1"),
-			total: 1,
-		},
-		{
-			name:  "single-host v6 /128",
-			spec:  "::1/128",
-			want:  addrs(t, "::1"),
 			total: 1,
 		},
 		{
@@ -169,6 +139,11 @@ func TestParse_Errors(t *testing.T) {
 		{"mixed-family range", "192.168.1.1-2001:db8::1"},
 		{"last-octet below start", "192.168.1.10-5"},
 		{"last-octet overflow", "192.168.1.10-256"},
+		// scry is IPv4-only in scope; v6 inputs must be rejected cleanly.
+		{"IPv6 literal", "2001:db8::1"},
+		{"IPv6 loopback", "::1"},
+		{"IPv6 CIDR", "2001:db8::/64"},
+		{"IPv6 range", "2001:db8::1-2001:db8::3"},
 	}
 	for _, tc := range cases {
 		tc := tc
@@ -387,25 +362,6 @@ func TestIterator_LargeCIDR_LazyTotal(t *testing.T) {
 	}
 }
 
-func TestIterator_V6LargePrefix_TotalUnknown(t *testing.T) {
-	// /0 v6 has 2^128 addresses — can't fit in uint64.
-	it, err := Parse([]string{"::/0"}, Options{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, ok := it.Total()
-	if ok {
-		t.Fatalf("Total() reported known for /0; expected unknown")
-	}
-	// First address should still iterate.
-	a, ok := it.Next()
-	if !ok {
-		t.Fatal("Next() returned !ok on fresh /0")
-	}
-	if a != mustAddr(t, "::") {
-		t.Fatalf("first addr = %v, want ::", a)
-	}
-}
 
 // -- multiple specs -----------------------------------------------------------
 
@@ -432,9 +388,6 @@ func TestLastInPrefix(t *testing.T) {
 		{"192.168.1.0/30", "192.168.1.3"},
 		{"10.0.0.0/8", "10.255.255.255"},
 		{"10.0.0.1/32", "10.0.0.1"},
-		{"2001:db8::/126", "2001:db8::3"},
-		{"2001:db8::/64", "2001:db8::ffff:ffff:ffff:ffff"},
-		{"::/0", "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"},
 	}
 	for _, tc := range cases {
 		p := netip.MustParsePrefix(tc.in)
@@ -454,7 +407,6 @@ func TestAddrDiff(t *testing.T) {
 		{"10.0.0.0", "10.0.0.0", 1, true},
 		{"10.0.0.0", "10.0.0.9", 10, true},
 		{"0.0.0.0", "255.255.255.255", 1 << 32, true},
-		{"2001:db8::", "2001:db8::ff", 256, true},
 		{"10.0.0.5", "10.0.0.1", 0, false}, // reversed
 	}
 	for _, tc := range cases {

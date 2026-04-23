@@ -65,7 +65,7 @@ func SynScan(ctx context.Context, it *target.Iterator, cfg Config) (<-chan HostR
 		rep.SetTotal(int64(total) * unit)
 	}
 
-	state, cleanup, err := setupSYN(ctx, cfg.Timeout, cfg.Rate)
+	state, cleanup, err := setupSYN(ctx, cfg.Timeout, cfg.Rate, cfg.Adaptive)
 	if err != nil {
 		return nil, err
 	}
@@ -96,11 +96,29 @@ type scanState struct {
 	basePort uint16 // ephemeral base; each probe uses basePort + portIdx++
 	portIdx  uint32
 	limiter  *ratelimit.Limiter
+	adaptive *ratelimit.Adaptive
 
 	macMu     sync.Mutex
 	macByDst  map[netip.Addr]net.HardwareAddr
 	bcastWarn sync.Once
 	warnW     io.Writer
+}
+
+// waitForToken pulls one token from whichever pacer is active.
+func (st *scanState) waitForToken(ctx context.Context) error {
+	if st.adaptive != nil {
+		return st.adaptive.Wait(ctx)
+	}
+	return st.limiter.Wait(ctx)
+}
+
+// reportProbe feeds probe outcomes back into the adaptive limiter.
+func (st *scanState) reportProbe(state State) {
+	if st.adaptive == nil {
+		return
+	}
+	isErr := state == StateFiltered || state == StateError
+	st.adaptive.ReportProbe(isErr)
 }
 
 type probeKey struct {
@@ -197,7 +215,7 @@ func synProbe(ctx context.Context, st *scanState, dst netip.Addr, port uint16, t
 			st.mu.Unlock()
 		}()
 
-		if err := st.limiter.Wait(ctx); err != nil {
+		if err := st.waitForToken(ctx); err != nil {
 			return probeOutcome{state: StateError}
 		}
 		if err := st.sendSYN(dst, port, srcPort); err != nil {
@@ -219,6 +237,7 @@ func synProbe(ctx context.Context, st *scanState, dst netip.Addr, port uint16, t
 	}
 	res.State = out.state
 	res.RTT = out.rtt
+	st.reportProbe(out.state)
 	return res
 }
 
@@ -344,7 +363,7 @@ func (st *scanState) sendSYN(dst netip.Addr, dstPort, srcPort uint16) error {
 // scans are on the same broadcast domain where we can resolve the dst MAC
 // via ARP lookups (not yet wired); for off-link we'd need a default-gateway
 // lookup. Future work: see DEFERRED.md.
-func setupSYN(ctx context.Context, timeout time.Duration, rate int) (*scanState, func(), error) {
+func setupSYN(ctx context.Context, timeout time.Duration, rps int, adaptive bool) (*scanState, func(), error) {
 	iface, srcIP, srcMAC, err := pickInterface()
 	if err != nil {
 		return nil, nil, err
@@ -357,21 +376,29 @@ func setupSYN(ctx context.Context, timeout time.Duration, rate int) (*scanState,
 		h.Close()
 		return nil, nil, fmt.Errorf("bpf filter: %w", err)
 	}
-	burst := rate
+	burst := rps
 	if burst > 1000 {
 		burst = 1000 // cap the burst so long scans don't launch a huge lead
 	}
 	st := &scanState{
-		waiters:   make(map[probeKey]*probeWaiter, 1024),
-		srcIP:     srcIP,
-		srcMAC:    srcMAC,
-		srcNet:    srcSubnet(iface, srcIP),
-		iface:     iface,
-		handle:    h,
-		basePort:  40000 + uint16(rand.Intn(10000)), //nolint:gosec
-		limiter:   ratelimit.New(rate, burst),
-		macByDst:  make(map[netip.Addr]net.HardwareAddr, 64),
-		warnW:     os.Stderr,
+		waiters:  make(map[probeKey]*probeWaiter, 1024),
+		srcIP:    srcIP,
+		srcMAC:   srcMAC,
+		srcNet:   srcSubnet(iface, srcIP),
+		iface:    iface,
+		handle:   h,
+		basePort: 40000 + uint16(rand.Intn(10000)), //nolint:gosec
+		macByDst: make(map[netip.Addr]net.HardwareAddr, 64),
+		warnW:    os.Stderr,
+	}
+	if adaptive && rps > 0 {
+		start := rps / 4
+		if start < 100 {
+			start = 100
+		}
+		st.adaptive = ratelimit.NewAdaptive(start, rps)
+	} else {
+		st.limiter = ratelimit.New(rps, burst)
 	}
 	return st, func() { h.Close() }, nil
 }

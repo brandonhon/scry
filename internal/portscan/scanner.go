@@ -46,6 +46,12 @@ type Config struct {
 	// rate limiting. TCP-connect mode ignores this; the socket semaphore
 	// is the pacer there.
 	Rate int
+
+	// Adaptive enables the adaptive rate limiter: the SYN sender starts
+	// at max(Rate/4, 100) pps and scales up/down based on the observed
+	// probe error rate. Ignored when Rate is 0 or when the scan is
+	// TCP-connect (not --syn).
+	Adaptive bool
 }
 
 // HostResult aggregates all port results for a single host, plus any

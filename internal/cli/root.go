@@ -40,6 +40,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		noProgressFlag  bool
 		scriptFiles     []string
 		scriptTimeout   time.Duration
+		synFlag         bool
 	)
 
 	cmd := &cobra.Command{
@@ -130,7 +131,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 				Verbose: verbose,
 			})
 
-			return runScan(cmd.Context(), it, cfg, writer, scanFilter{up: upFlag, down: downFlag})
+			return runScan(cmd.Context(), it, cfg, writer, scanFilter{up: upFlag, down: downFlag}, synFlag)
 		},
 		SilenceUsage: true,
 	}
@@ -157,6 +158,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.BoolVar(&noProgressFlag, "no-progress", false, "Disable the stderr progress bar")
 	f.StringSliceVar(&scriptFiles, "script", nil, "Lua script to run against open ports (repeatable)")
 	f.DurationVar(&scriptTimeout, "script-timeout", 5*time.Second, "Per-invocation timeout for --script")
+	f.BoolVar(&synFlag, "syn", false, "Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW)")
 
 	return cmd
 }
@@ -175,7 +177,16 @@ func (sf scanFilter) keepHost(hr portscan.HostResult) bool {
 	return true
 }
 
-func runScan(ctx context.Context, it *target.Iterator, cfg portscan.Config, w output.Writer, sf scanFilter) error {
+func runScan(ctx context.Context, it *target.Iterator, cfg portscan.Config, w output.Writer, sf scanFilter, syn bool) error {
+	if syn {
+		if !portscan.SYNAvailable {
+			return portscan.ErrSYNUnavailable
+		}
+		if cfg.PingOnly {
+			return fmt.Errorf("--syn cannot be combined with --ping-only")
+		}
+	}
+
 	if err := w.Begin(); err != nil {
 		return err
 	}
@@ -184,7 +195,16 @@ func runScan(ctx context.Context, it *target.Iterator, cfg portscan.Config, w ou
 	// host already probed lands in the output. The producer reacts to ctx
 	// cancellation by refusing to launch new hosts but still flushes
 	// everything in flight before closing the channel.
-	results := portscan.Scan(ctx, it, cfg)
+	var results <-chan portscan.HostResult
+	if syn {
+		ch, err := portscan.SynScan(ctx, it, cfg)
+		if err != nil {
+			return err
+		}
+		results = ch
+	} else {
+		results = portscan.Scan(ctx, it, cfg)
+	}
 	var writeErr error
 	for hr := range results {
 		if writeErr != nil {

@@ -83,6 +83,65 @@ func TestCache_Timeout(t *testing.T) {
 	}
 }
 
+func TestDefaultLookup_SuccessPath(t *testing.T) {
+	orig := lookupAddr
+	t.Cleanup(func() { lookupAddr = orig })
+	lookupAddr = func(context.Context, string) ([]string, error) {
+		return []string{"host1.example.", "host2.example."}, nil
+	}
+	name, err := defaultLookup(context.Background(), netip.MustParseAddr("10.0.0.1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "host1.example." {
+		t.Fatalf("want first PTR record, got %q", name)
+	}
+}
+
+func TestDefaultLookup_NoRecords(t *testing.T) {
+	orig := lookupAddr
+	t.Cleanup(func() { lookupAddr = orig })
+	lookupAddr = func(context.Context, string) ([]string, error) {
+		return nil, nil
+	}
+	_, err := defaultLookup(context.Background(), netip.MustParseAddr("10.0.0.2"))
+	if err == nil || err.Error() != "no PTR records" {
+		t.Fatalf("want no-records error, got %v", err)
+	}
+}
+
+func TestDefaultLookup_UnderlyingError(t *testing.T) {
+	orig := lookupAddr
+	t.Cleanup(func() { lookupAddr = orig })
+	wantErr := errors.New("dial udp: refused")
+	lookupAddr = func(context.Context, string) ([]string, error) {
+		return nil, wantErr
+	}
+	_, err := defaultLookup(context.Background(), netip.MustParseAddr("10.0.0.3"))
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("want underlying error, got %v", err)
+	}
+}
+
+// TestNew_DefaultsWireUpDefaultLookup — constructing a Cache without
+// supplying Options.Lookup must fall back to defaultLookup. Exercise
+// the wired-up path via the stubbed lookupAddr so we don't hit real DNS.
+func TestNew_DefaultsWireUpDefaultLookup(t *testing.T) {
+	orig := lookupAddr
+	t.Cleanup(func() { lookupAddr = orig })
+	lookupAddr = func(context.Context, string) ([]string, error) {
+		return []string{"stub.example."}, nil
+	}
+	c := New(Options{})
+	name, err := c.Lookup(context.Background(), netip.MustParseAddr("10.0.0.4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "stub.example" {
+		t.Fatalf("want stub.example, got %q", name)
+	}
+}
+
 func TestCache_DifferentAddrs_IndependentEntries(t *testing.T) {
 	c := New(Options{
 		Lookup: func(ctx context.Context, addr netip.Addr) (string, error) {

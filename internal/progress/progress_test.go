@@ -47,6 +47,40 @@ func TestBar_IndeterminateDoesNotPanic(t *testing.T) {
 	r.Finish()
 }
 
+// Test both branches of New(): TTY (bar) and non-TTY (noop).
+func TestNew_NoTTY_ReturnsNoop(t *testing.T) {
+	orig := isTTY
+	t.Cleanup(func() { isTTY = orig })
+	isTTY = func() bool { return false }
+
+	r := New("scanning", false)
+	if _, ok := r.(noop); !ok {
+		t.Fatalf("expected noop, got %T", r)
+	}
+}
+
+func TestNew_TTY_ReturnsBar(t *testing.T) {
+	orig := isTTY
+	t.Cleanup(func() { isTTY = orig })
+	isTTY = func() bool { return true }
+
+	r := New("scanning", false)
+	if _, ok := r.(noop); ok {
+		t.Fatal("TTY branch should not return noop")
+	}
+}
+
+func TestNew_Force_BypassesTTYCheck(t *testing.T) {
+	orig := isTTY
+	t.Cleanup(func() { isTTY = orig })
+	isTTY = func() bool { return false }
+
+	r := New("scanning", true)
+	if _, ok := r.(noop); ok {
+		t.Fatal("force=true must bypass TTY check")
+	}
+}
+
 func TestBar_ConcurrentTicks(t *testing.T) {
 	var buf bytes.Buffer
 	r := NewFor(&buf, "parallel")

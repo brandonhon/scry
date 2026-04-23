@@ -1,7 +1,6 @@
 // Command gscan is a fast IP/port scanner.
 //
-// See ip-scanner-plan.md for the full design. Phase 1 scope: TCP connect
-// scan on a single port.
+// See ip-scanner-plan.md for the full design.
 package main
 
 import (
@@ -11,9 +10,12 @@ import (
 	"syscall"
 
 	"github.com/bhoneycutt/gscan/internal/cli"
+	"github.com/bhoneycutt/gscan/internal/output"
 )
 
 func main() {
+	output.EnableVT()
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 

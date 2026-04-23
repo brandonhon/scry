@@ -18,8 +18,8 @@ scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and 
 	Grab a short service banner on open ports
 
 .PP
-\fB--concurrency\fP=1000
-	Max parallel sockets in flight
+\fB--concurrency\fP=2000
+	Max parallel sockets in flight (lower if hitting RLIMIT_NOFILE)
 
 .PP
 \fB--down\fP[=false]
@@ -34,7 +34,11 @@ scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and 
 	help for scry
 
 .PP
-\fB--max-hosts\fP=50
+\fB--list-scripts\fP[=false]
+	Print metadata for scripts passed via --script and exit
+
+.PP
+\fB--max-hosts\fP=100
 	Max hosts probed in parallel
 
 .PP
@@ -62,8 +66,8 @@ scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and 
 	Ports: 22 | 22,80 | 1-1024 | - | top100 | top1000
 
 .PP
-\fB--retries\fP=1
-	Retries on filtered (timeout) probes
+\fB--retries\fP=0
+	Retries on filtered (timeout) probes (set 1+ for accuracy on lossy links)
 
 .PP
 \fB--script\fP=[]
@@ -82,8 +86,8 @@ scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and 
 	Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW)
 
 .PP
-\fB--timeout\fP=1.5s
-	Per-probe dial timeout
+\fB--timeout\fP=500ms
+	Per-probe dial timeout (bump for WAN or high-latency links)
 
 .PP
 \fB--up\fP[=false]

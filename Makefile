@@ -62,6 +62,11 @@ cross: ## Cross-compile release binaries for linux/amd64 and windows/amd64
 man: ## Generate docs/man/scry.1
 	go run ./cmd/gen-man docs/man
 
+.PHONY: regen-data
+regen-data: ## Regenerate top.go + service.go from data/iana-service-names-port-numbers.csv
+	go run ./cmd/gen-top-ports -in data/iana-service-names-port-numbers.csv -out internal/portscan/top.go
+	go run ./cmd/gen-services   -in data/iana-service-names-port-numbers.csv -out internal/output/service.go
+
 .PHONY: fuzz
 fuzz: ## Run parser fuzz targets for 30s each
 	go test -fuzz=^FuzzParse$$ -fuzztime=30s -run=_ ./internal/target/...

@@ -1,12 +1,15 @@
 module github.com/bhoneycutt/gscan
 
-go 1.22
+go 1.23
+
+toolchain go1.24.4
 
 require (
 	github.com/charmbracelet/lipgloss v0.13.0
 	github.com/mattn/go-isatty v0.0.20
 	github.com/schollz/progressbar/v3 v3.17.1
 	github.com/spf13/cobra v1.10.2
+	github.com/yuin/gopher-lua v1.1.2
 	golang.org/x/sync v0.10.0
 	golang.org/x/sys v0.27.0
 )

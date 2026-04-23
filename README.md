@@ -6,7 +6,7 @@ This is the working name. See [`ip-scanner-plan.md`](./ip-scanner-plan.md) for t
 
 ## Status
 
-Phase 1 (MVP skeleton). Only TCP connect scanning against a single host:port works today.
+Phase 2 (core scanner). Bounded concurrency, full `-p` syntax, `--up`/`--down` filtering, retries, per-host latency. TCP-connect only; SYN scan lands in Phase 6.
 
 ## Build
 
@@ -28,10 +28,13 @@ Or directly:
 go build -o bin/gscan ./cmd/gscan
 ```
 
-## Usage (Phase 1)
+## Usage
 
 ```sh
 gscan 127.0.0.1 -p 22
+gscan 192.168.1.0/24 -p top100 --up
+gscan 10.0.0.1-50 -p 22,80,443 --timeout 500ms
+gscan example.com -p-          # all 65535 ports
 ```
 
 Accepted target forms (parser, `internal/target`):

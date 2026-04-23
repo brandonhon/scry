@@ -42,6 +42,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		scriptTimeout   time.Duration
 		synFlag         bool
 		listScriptsFlag bool
+		rateFlag        int
 	)
 
 	cmd := &cobra.Command{
@@ -134,6 +135,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 				Progress:     rep,
 				Resolver:     dns,
 				ScriptEngine: scriptEngine,
+				Rate:         rateFlag,
 			}
 
 			writer := output.New(format, stdout, output.Options{
@@ -170,6 +172,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.DurationVar(&scriptTimeout, "script-timeout", 5*time.Second, "Per-invocation timeout for --script")
 	f.BoolVar(&synFlag, "syn", false, "Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW; cannot scan loopback or WSL2)")
 	f.BoolVar(&listScriptsFlag, "list-scripts", false, "Print metadata for scripts passed via --script and exit")
+	f.IntVar(&rateFlag, "rate", 10000, "Max SYN packets per second (--syn only; 0 = unlimited)")
 
 	return cmd
 }

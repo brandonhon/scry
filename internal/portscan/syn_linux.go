@@ -33,6 +33,7 @@ import (
 	"github.com/google/gopacket/pcap"
 
 	"github.com/bhoneycutt/scry/internal/progress"
+	"github.com/bhoneycutt/scry/internal/ratelimit"
 	"github.com/bhoneycutt/scry/internal/target"
 )
 
@@ -62,7 +63,7 @@ func SynScan(ctx context.Context, it *target.Iterator, cfg Config) (<-chan HostR
 		rep.SetTotal(int64(total) * unit)
 	}
 
-	state, cleanup, err := setupSYN(ctx, cfg.Timeout)
+	state, cleanup, err := setupSYN(ctx, cfg.Timeout, cfg.Rate)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +93,7 @@ type scanState struct {
 	handle   *pcap.Handle
 	basePort uint16 // ephemeral base; each probe uses basePort + portIdx++
 	portIdx  uint32
+	limiter  *ratelimit.Limiter
 }
 
 type probeKey struct {
@@ -203,6 +205,9 @@ func synProbe(ctx context.Context, st *scanState, dst netip.Addr, port uint16, t
 			st.mu.Unlock()
 		}()
 
+		if err := st.limiter.Wait(ctx); err != nil {
+			return probeOutcome{state: StateError}
+		}
 		if err := st.sendSYN(dst, port, srcPort); err != nil {
 			return probeOutcome{state: StateError}
 		}
@@ -334,7 +339,7 @@ func (st *scanState) sendSYN(dst netip.Addr, dstPort, srcPort uint16) error {
 // scans are on the same broadcast domain where we can resolve the dst MAC
 // via ARP lookups (not yet wired); for off-link we'd need a default-gateway
 // lookup. Future work: see DEFERRED.md.
-func setupSYN(ctx context.Context, timeout time.Duration) (*scanState, func(), error) {
+func setupSYN(ctx context.Context, timeout time.Duration, rate int) (*scanState, func(), error) {
 	iface, srcIP, srcMAC, err := pickInterface()
 	if err != nil {
 		return nil, nil, err
@@ -347,6 +352,10 @@ func setupSYN(ctx context.Context, timeout time.Duration) (*scanState, func(), e
 		h.Close()
 		return nil, nil, fmt.Errorf("bpf filter: %w", err)
 	}
+	burst := rate
+	if burst > 1000 {
+		burst = 1000 // cap the burst so long scans don't launch a huge lead
+	}
 	st := &scanState{
 		waiters:  make(map[probeKey]*probeWaiter, 1024),
 		srcIP:    srcIP,
@@ -355,6 +364,7 @@ func setupSYN(ctx context.Context, timeout time.Duration) (*scanState, func(), e
 		iface:    iface,
 		handle:   h,
 		basePort: 40000 + uint16(rand.Intn(10000)), //nolint:gosec
+		limiter:  ratelimit.New(rate, burst),
 	}
 	return st, func() { h.Close() }, nil
 }

@@ -41,6 +41,11 @@ type Config struct {
 
 	// ScriptEngine runs Lua scripts against each open port. nil disables.
 	ScriptEngine *script.Engine
+
+	// Rate bounds SYN packet emission (packets-per-second). 0 disables
+	// rate limiting. TCP-connect mode ignores this; the socket semaphore
+	// is the pacer there.
+	Rate int
 }
 
 // HostResult aggregates all port results for a single host, plus any

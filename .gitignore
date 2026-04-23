@@ -1,0 +1,28 @@
+# Go build artifacts
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test/coverage artifacts
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local envs
+.env
+.env.local

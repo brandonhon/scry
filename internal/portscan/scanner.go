@@ -6,30 +6,54 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bhoneycutt/gscan/internal/banner"
+	"github.com/bhoneycutt/gscan/internal/discovery"
+	"github.com/bhoneycutt/gscan/internal/progress"
+	"github.com/bhoneycutt/gscan/internal/resolver"
 	"github.com/bhoneycutt/gscan/internal/target"
 	"github.com/bhoneycutt/gscan/internal/workerpool"
 )
 
 // Config tunes a Scan run.
 type Config struct {
-	Ports       []uint16      // required; from ParsePorts
+	Ports       []uint16      // required unless PingOnly
 	Timeout     time.Duration // per-probe dial timeout (default 1500ms)
 	Retries     int           // retries on filtered (default 0)
 	Concurrency int           // max sockets in flight (default 1000)
 	HostParall  int           // max hosts in flight (default 50)
+
+	// PingOnly skips the port scan and runs TCP ping discovery only (-sn).
+	PingOnly bool
+
+	// Banner enables a passive banner grab on every open port.
+	Banner bool
+
+	// Progress receives one Tick per host completed. SetTotal is called
+	// once up front using target.Iterator.Total(). nil → progress.NewNoop.
+	Progress progress.Reporter
+
+	// Resolver enables reverse DNS enrichment. nil disables it (equivalent
+	// to --no-dns at the CLI level).
+	Resolver *resolver.Cache
 }
 
-// HostResult aggregates all port results for a single host.
+// HostResult aggregates all port results for a single host, plus any
+// reverse-DNS and discovery metadata collected in parallel with the scan.
 type HostResult struct {
-	Addr    netip.Addr
-	Started time.Time
-	Elapsed time.Duration
-	Results []Result
+	Addr      netip.Addr
+	Hostname  string // populated when Config.Resolver was set and PTR succeeded
+	Started   time.Time
+	Elapsed   time.Duration
+	Results   []Result
+	Discovery *discovery.Result // populated in PingOnly mode
 }
 
-// Up reports whether any probe returned StateOpen. Callers that want
-// discovery via closed/filtered signals can inspect Results directly.
+// Up reports whether any probe returned StateOpen, or (in PingOnly mode)
+// whether discovery reached the host.
 func (h HostResult) Up() bool {
+	if h.Discovery != nil {
+		return h.Discovery.Up
+	}
 	for _, r := range h.Results {
 		if r.State == StateOpen {
 			return true
@@ -49,16 +73,23 @@ func (h HostResult) OpenPorts() []uint16 {
 	return out
 }
 
-// Scan iterates addresses from it and probes each Config.Ports. Results are
-// emitted on the returned channel as complete HostResult values (one per
-// host). The channel is closed when iteration + in-flight work finishes or
-// when ctx is cancelled.
+// Scan iterates addresses from it and probes each Config.Ports (or runs
+// TCP ping when Config.PingOnly is set). Results stream on the returned
+// channel; the channel closes when iteration and in-flight work finish
+// or when ctx is cancelled.
 func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResult {
 	cfg = applyDefaults(cfg)
 	pool := workerpool.New(workerpool.Config{
 		Hosts:   cfg.HostParall,
 		Sockets: cfg.Concurrency,
 	})
+	rep := cfg.Progress
+	if rep == nil {
+		rep = progress.NewNoop()
+	}
+	if total, ok := it.Total(); ok {
+		rep.SetTotal(int64(total))
+	}
 
 	out := make(chan HostResult, cfg.HostParall)
 	var wg sync.WaitGroup
@@ -66,6 +97,7 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 	go func() {
 		defer func() {
 			wg.Wait()
+			rep.Finish()
 			close(out)
 		}()
 
@@ -84,7 +116,8 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 			go func(addr netip.Addr) {
 				defer wg.Done()
 				defer pool.ReleaseHost()
-				hr := scanHost(ctx, pool, addr, cfg)
+				hr := processHost(ctx, pool, addr, cfg)
+				rep.Tick()
 				select {
 				case out <- hr:
 				case <-ctx.Done():
@@ -112,16 +145,48 @@ func applyDefaults(cfg Config) Config {
 	return cfg
 }
 
-// scanHost probes every configured port for a single host. Each probe
-// acquires one socket slot from the pool, so the cross-host socket budget
-// is enforced even when one host has many ports.
-func scanHost(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg Config) HostResult {
+// processHost runs the configured work for a single address. In PingOnly
+// mode it performs TCP discovery; otherwise it probes every port. In
+// either case it launches a reverse-DNS lookup in parallel so the PTR
+// result is ready by the time the scan finishes.
+func processHost(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg Config) HostResult {
 	start := time.Now()
-	hr := HostResult{
-		Addr:    addr,
-		Started: start,
-		Results: make([]Result, 0, len(cfg.Ports)),
+	hr := HostResult{Addr: addr, Started: start}
+
+	// Reverse DNS runs in parallel with whatever the main path does.
+	var (
+		dnsDone chan struct{}
+		dnsName string
+	)
+	if cfg.Resolver != nil {
+		dnsDone = make(chan struct{})
+		go func() {
+			defer close(dnsDone)
+			name, _ := cfg.Resolver.Lookup(ctx, addr)
+			dnsName = name
+		}()
 	}
+
+	if cfg.PingOnly {
+		res := discovery.Ping(ctx, addr, discovery.Config{Timeout: cfg.Timeout})
+		hr.Discovery = &res
+	} else {
+		hr.Results = scanPorts(ctx, pool, addr, cfg)
+	}
+
+	if dnsDone != nil {
+		<-dnsDone
+		hr.Hostname = dnsName
+	}
+	hr.Elapsed = time.Since(start)
+	return hr
+}
+
+// scanPorts probes every configured port for a single host. Each probe
+// acquires one socket slot from the pool, so the cross-host socket
+// budget is enforced even when one host has many ports.
+func scanPorts(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg Config) []Result {
+	results := make([]Result, 0, len(cfg.Ports))
 
 	var mu sync.Mutex
 	var portWg sync.WaitGroup
@@ -138,15 +203,19 @@ func scanHost(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg C
 			defer portWg.Done()
 			defer pool.ReleaseSocket()
 			res := probeWithRetry(ctx, addr, port, cfg)
+			if cfg.Banner && res.State == StateOpen {
+				if b, err := banner.Grab(ctx, addr, port, 500*time.Millisecond, 0); err == nil {
+					res.Banner = b
+				}
+			}
 			mu.Lock()
-			hr.Results = append(hr.Results, res)
+			results = append(results, res)
 			mu.Unlock()
 		}(port)
 	}
 
 	portWg.Wait()
-	hr.Elapsed = time.Since(start)
-	return hr
+	return results
 }
 
 // probeWithRetry performs the initial probe plus up to cfg.Retries retries

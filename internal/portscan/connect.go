@@ -41,11 +41,12 @@ func (s State) String() string {
 
 // Result is the outcome of a single probe.
 type Result struct {
-	Addr    netip.Addr
-	Port    uint16
-	State   State
-	RTT     time.Duration
-	Err     error // populated for StateError
+	Addr   netip.Addr
+	Port   uint16
+	State  State
+	RTT    time.Duration
+	Err    error  // populated for StateError
+	Banner string // populated when banner grab is enabled and data was received
 }
 
 // TCPConnect performs one TCP-connect probe against addr:port using the

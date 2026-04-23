@@ -10,6 +10,7 @@ import (
 	"github.com/bhoneycutt/gscan/internal/discovery"
 	"github.com/bhoneycutt/gscan/internal/progress"
 	"github.com/bhoneycutt/gscan/internal/resolver"
+	"github.com/bhoneycutt/gscan/internal/script"
 	"github.com/bhoneycutt/gscan/internal/target"
 	"github.com/bhoneycutt/gscan/internal/workerpool"
 )
@@ -35,6 +36,9 @@ type Config struct {
 	// Resolver enables reverse DNS enrichment. nil disables it (equivalent
 	// to --no-dns at the CLI level).
 	Resolver *resolver.Cache
+
+	// ScriptEngine runs Lua scripts against each open port. nil disables.
+	ScriptEngine *script.Engine
 }
 
 // HostResult aggregates all port results for a single host, plus any
@@ -203,9 +207,17 @@ func scanPorts(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg 
 			defer portWg.Done()
 			defer pool.ReleaseSocket()
 			res := probeWithRetry(ctx, addr, port, cfg)
-			if cfg.Banner && res.State == StateOpen {
-				if b, err := banner.Grab(ctx, addr, port, 500*time.Millisecond, 0); err == nil {
-					res.Banner = b
+			if res.State == StateOpen {
+				if cfg.Banner {
+					if b, err := banner.Grab(ctx, addr, port, 500*time.Millisecond, 0); err == nil {
+						res.Banner = b
+					}
+				}
+				if cfg.ScriptEngine != nil {
+					findings := cfg.ScriptEngine.RunAll(ctx, addr.String(), port)
+					for _, f := range findings {
+						res.Findings = append(res.Findings, ScriptFinding{Script: f.Script, Output: f.Output})
+					}
 				}
 			}
 			mu.Lock()

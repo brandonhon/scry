@@ -143,6 +143,14 @@ func (h *humanWriter) keepPort(r portscan.Result) bool {
 }
 
 func (h *humanWriter) formatPortLine(r portscan.Result) string {
+	line := h.formatPortMainLine(r)
+	for _, f := range r.Findings {
+		line += "\n      " + h.style.service.Render("["+f.Script+"] ") + sanitize(f.Output)
+	}
+	return line
+}
+
+func (h *humanWriter) formatPortMainLine(r portscan.Result) string {
 	var state string
 	switch r.State {
 	case portscan.StateOpen:

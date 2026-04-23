@@ -20,11 +20,18 @@ type jsonWriter struct {
 // jsonHost is the wire schema. Field names are frozen once a release goes
 // out; additions only, never renames.
 type jsonHost struct {
-	Addr    string       `json:"addr"`
-	Up      bool         `json:"up"`
-	Started time.Time    `json:"started"`
-	Elapsed string       `json:"elapsed"`
-	Results []jsonResult `json:"results"`
+	Addr      string         `json:"addr"`
+	Hostname  string         `json:"hostname,omitempty"`
+	Up        bool           `json:"up"`
+	Started   time.Time      `json:"started"`
+	Elapsed   string         `json:"elapsed"`
+	Discovery *jsonDiscovery `json:"discovery,omitempty"`
+	Results   []jsonResult   `json:"results"`
+}
+
+type jsonDiscovery struct {
+	Via string `json:"via,omitempty"`
+	RTT string `json:"rtt"`
 }
 
 type jsonResult struct {
@@ -33,6 +40,7 @@ type jsonResult struct {
 	State   string `json:"state"`
 	Service string `json:"service,omitempty"`
 	RTT     string `json:"rtt"`
+	Banner  string `json:"banner,omitempty"`
 	Err     string `json:"err,omitempty"`
 }
 
@@ -57,6 +65,7 @@ func (j *jsonWriter) WriteHost(hr portscan.HostResult) error {
 			State:   r.State.String(),
 			Service: Service(r.Port),
 			RTT:     r.RTT.Round(time.Microsecond).String(),
+			Banner:  r.Banner,
 		}
 		if r.Err != nil {
 			item.Err = r.Err.Error()
@@ -65,11 +74,18 @@ func (j *jsonWriter) WriteHost(hr portscan.HostResult) error {
 	}
 
 	h := jsonHost{
-		Addr:    hr.Addr.String(),
-		Up:      hr.Up(),
-		Started: hr.Started.UTC(),
-		Elapsed: hr.Elapsed.Round(time.Microsecond).String(),
-		Results: results,
+		Addr:     hr.Addr.String(),
+		Hostname: hr.Hostname,
+		Up:       hr.Up(),
+		Started:  hr.Started.UTC(),
+		Elapsed:  hr.Elapsed.Round(time.Microsecond).String(),
+		Results:  results,
+	}
+	if hr.Discovery != nil {
+		h.Discovery = &jsonDiscovery{
+			Via: hr.Discovery.Via,
+			RTT: hr.Discovery.RTT.Round(time.Microsecond).String(),
+		}
 	}
 	return j.enc.Encode(h)
 }

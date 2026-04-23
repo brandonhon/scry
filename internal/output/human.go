@@ -80,8 +80,28 @@ func (h *humanWriter) WriteHost(hr portscan.HostResult) error {
 	addr := h.style.header.Render(hr.Addr.String())
 	elapsed := h.style.dim.Render(hr.Elapsed.Round(time.Microsecond).String())
 
-	if _, err := fmt.Fprintf(h.w, "%s  %s  %s\n", badge, addr, elapsed); err != nil {
+	header := fmt.Sprintf("%s  %s", badge, addr)
+	if hr.Hostname != "" {
+		header += "  " + h.style.dim.Render("("+hr.Hostname+")")
+	}
+	if _, err := fmt.Fprintf(h.w, "%s  %s\n", header, elapsed); err != nil {
 		return err
+	}
+
+	// Discovery-only (-sn) has no per-port table; show the "via" hint.
+	if hr.Discovery != nil {
+		if hr.Discovery.Up && hr.Discovery.Via != "" {
+			line := fmt.Sprintf("  via %s  %s",
+				hr.Discovery.Via,
+				h.style.dim.Render(hr.Discovery.RTT.Round(time.Microsecond).String()))
+			if _, err := fmt.Fprintln(h.w, line); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(h.w); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	// Sort ports for stable display.
@@ -143,6 +163,9 @@ func (h *humanWriter) formatPortLine(r portscan.Result) string {
 	rtt := h.style.dim.Render(r.RTT.Round(time.Microsecond).String())
 
 	line := fmt.Sprintf("  %5d/tcp  %s  %-18s %s", r.Port, state, svc, rtt)
+	if r.Banner != "" {
+		line += "  " + h.style.dim.Render("→ "+sanitize(r.Banner))
+	}
 	if r.State == portscan.StateError && r.Err != nil {
 		line += "  " + h.style.dim.Render(sanitize(r.Err.Error()))
 	}

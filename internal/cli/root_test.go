@@ -105,7 +105,7 @@ func TestRootCmd_GrepOutput(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	cmd := NewRootCmd(&stdout, &stderr)
-	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "-o", "grep"})
+	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "-o", "grep", "--no-dns"})
 	cmd.SetContext(context.Background())
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute: %v\nstderr=%s", err, stderr.String())
@@ -116,6 +116,65 @@ func TestRootCmd_GrepOutput(t *testing.T) {
 	}
 	if !strings.Contains(line, portStr+"/open/") {
 		t.Fatalf("missing port/open in %q", line)
+	}
+}
+
+// Without --no-dns, reverse DNS enrichment is best-effort. Verify the
+// grep output tolerates either "127.0.0.1" or "127.0.0.1 (name)".
+func TestRootCmd_ReverseDNSRendersInHeader(t *testing.T) {
+	a, stop := listenAndAccept(t)
+	defer stop()
+	_, portStr, _ := net.SplitHostPort(a)
+
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "-o", "grep"})
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\nstderr=%s", err, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "127.0.0.1") {
+		t.Fatalf("missing addr in %q", out)
+	}
+}
+
+func TestRootCmd_PingOnlyDiscovery(t *testing.T) {
+	// Spin up a listener so 127.0.0.1 has at least one reachable port,
+	// though discovery also considers RSTs as up.
+	_, stop := listenAndAccept(t)
+	defer stop()
+
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"127.0.0.1", "--sn", "-o", "grep", "--no-dns", "--timeout", "500ms"})
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\nstderr=%s", err, stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "Host: 127.0.0.1\tStatus: up") {
+		t.Fatalf("expected up status from -sn discovery; got %q", out)
+	}
+}
+
+func TestRootCmd_PingOnly_RejectsPorts(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"127.0.0.1", "--sn", "-p", "22"})
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error for -sn with -p")
+	}
+}
+
+func TestRootCmd_MissingPortsFlagUnlessPingOnly(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"127.0.0.1"})
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error when --ports missing and not --ping-only")
 	}
 }
 
@@ -193,12 +252,3 @@ func TestRootCmd_BadTarget(t *testing.T) {
 	}
 }
 
-func TestRootCmd_MissingPortsFlag(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	cmd := NewRootCmd(&stdout, &stderr)
-	cmd.SetArgs([]string{"127.0.0.1"})
-	cmd.SetContext(context.Background())
-	if err := cmd.Execute(); err == nil {
-		t.Fatal("expected error when --ports missing")
-	}
-}

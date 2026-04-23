@@ -48,9 +48,13 @@ func (g *grepWriter) WriteHost(hr portscan.HostResult) error {
 	if hr.Up() {
 		status = "up"
 	}
+	addr := hr.Addr.String()
+	if hr.Hostname != "" {
+		addr += " (" + hr.Hostname + ")"
+	}
 	_, err := fmt.Fprintf(g.w,
 		"Host: %s\tStatus: %s\tPorts: %s\tElapsed: %s\n",
-		hr.Addr.String(), status, ports, hr.Elapsed.Round(time.Microsecond))
+		addr, status, ports, hr.Elapsed.Round(time.Microsecond))
 	return err
 }
 

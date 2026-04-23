@@ -59,6 +59,19 @@ scry 10.0.0.0/24 -p 22,80,443,6379 \
 
 See [`scripts/README.md`](./scripts/README.md) for the `scry.*` API surface and script anatomy.
 
+## Speed vs. accuracy
+
+Defaults are tuned for speed on LAN and low-latency links. If you are scanning WAN targets, over VPN, or across lossy links, raise the timeout and add retries:
+
+| Scenario | Suggested flags |
+|---|---|
+| LAN / fast link (default) | *(none)* |
+| VPN or coffee-shop WiFi | `--timeout 1s --retries 1` |
+| Scanning over the public internet | `--timeout 2s --retries 2` |
+| Tight socket budget | `--concurrency 500 --max-hosts 20` |
+
+Effective defaults: `--timeout 500ms`, `--retries 0`, `--concurrency 2000`, `--max-hosts 100`. On a lossy link at defaults, filtered ports can be misclassified — bumping `--timeout` and `--retries` trades speed for accuracy.
+
 ## SYN scanning
 
 SYN scanning is build-tag gated so the default binary has no libpcap dependency. To enable it:

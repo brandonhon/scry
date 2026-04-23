@@ -15,13 +15,15 @@ import (
 	"github.com/bhoneycutt/scry/internal/workerpool"
 )
 
-// Config tunes a Scan run.
+// Config tunes a Scan run. Defaults are speed-first: short timeout, no
+// retries, generous concurrency. Raise Timeout + Retries for accuracy on
+// WAN or lossy links.
 type Config struct {
 	Ports       []uint16      // required unless PingOnly
-	Timeout     time.Duration // per-probe dial timeout (default 1500ms)
+	Timeout     time.Duration // per-probe dial timeout (default 500ms)
 	Retries     int           // retries on filtered (default 0)
-	Concurrency int           // max sockets in flight (default 1000)
-	HostParall  int           // max hosts in flight (default 50)
+	Concurrency int           // max sockets in flight (default 2000)
+	HostParall  int           // max hosts in flight (default 100)
 
 	// PingOnly skips the port scan and runs TCP ping discovery only (-sn).
 	PingOnly bool
@@ -141,13 +143,13 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 
 func applyDefaults(cfg Config) Config {
 	if cfg.Timeout <= 0 {
-		cfg.Timeout = 1500 * time.Millisecond
+		cfg.Timeout = 500 * time.Millisecond
 	}
 	if cfg.Concurrency <= 0 {
-		cfg.Concurrency = 1000
+		cfg.Concurrency = 2000
 	}
 	if cfg.HostParall <= 0 {
-		cfg.HostParall = 50
+		cfg.HostParall = 100
 	}
 	if cfg.Retries < 0 {
 		cfg.Retries = 0

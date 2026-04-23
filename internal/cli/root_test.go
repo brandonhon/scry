@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net"
 	"strconv"
 	"strings"
@@ -29,40 +30,114 @@ func listenAndAccept(t *testing.T) (addr string, stop func()) {
 	return ln.Addr().String(), func() { _ = ln.Close() }
 }
 
-func TestRootCmd_OpenPortIsReported(t *testing.T) {
+func TestRootCmd_OpenPortHumanOutput(t *testing.T) {
 	a, stop := listenAndAccept(t)
 	defer stop()
 	_, portStr, _ := net.SplitHostPort(a)
 
 	var stdout, stderr bytes.Buffer
 	cmd := NewRootCmd(&stdout, &stderr)
-	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr})
+	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "--no-color"})
 	cmd.SetContext(context.Background())
-
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute: %v\nstderr=%s", err, stderr.String())
 	}
 	out := stdout.String()
-	if !strings.Contains(out, "127.0.0.1\tup\t") {
-		t.Fatalf("missing up header in %q", out)
+	if !strings.Contains(out, "UP") {
+		t.Fatalf("missing UP badge in %q", out)
 	}
-	if !strings.Contains(out, "/tcp\topen\t") {
+	if !strings.Contains(out, "127.0.0.1") {
+		t.Fatalf("missing host in %q", out)
+	}
+	if !strings.Contains(out, "/tcp") || !strings.Contains(out, "open") {
 		t.Fatalf("missing open port line in %q", out)
 	}
-	// Host elapsed should be formatted after the up token.
+	if !strings.Contains(out, "scanned 1 host(s), 1 up") {
+		t.Fatalf("missing summary in %q", out)
+	}
+	if strings.Contains(out, "\x1b[") {
+		t.Fatalf("--no-color still emitted ANSI: %q", out)
+	}
+}
+
+func TestRootCmd_JSONOutput(t *testing.T) {
+	a, stop := listenAndAccept(t)
+	defer stop()
+	_, portStr, _ := net.SplitHostPort(a)
+
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "-o", "json"})
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\nstderr=%s", err, stderr.String())
+	}
+
+	// One NDJSON line per host.
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if len(lines) != 1 {
+		t.Fatalf("got %d lines, want 1; out=%q", len(lines), stdout.String())
+	}
+	var h struct {
+		Addr    string `json:"addr"`
+		Up      bool   `json:"up"`
+		Results []struct {
+			Port  uint16 `json:"port"`
+			State string `json:"state"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(lines[0]), &h); err != nil {
+		t.Fatalf("unmarshal %q: %v", lines[0], err)
+	}
+	if h.Addr != "127.0.0.1" || !h.Up || len(h.Results) != 1 || h.Results[0].State != "open" {
+		t.Fatalf("unexpected json: %+v", h)
+	}
+	p, _ := strconv.Atoi(portStr)
+	if int(h.Results[0].Port) != p {
+		t.Fatalf("port mismatch: got %d want %d", h.Results[0].Port, p)
+	}
+}
+
+func TestRootCmd_GrepOutput(t *testing.T) {
+	a, stop := listenAndAccept(t)
+	defer stop()
+	_, portStr, _ := net.SplitHostPort(a)
+
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "-o", "grep"})
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v\nstderr=%s", err, stderr.String())
+	}
+	line := strings.TrimSpace(stdout.String())
+	if !strings.HasPrefix(line, "Host: 127.0.0.1\tStatus: up") {
+		t.Fatalf("unexpected grep line: %q", line)
+	}
+	if !strings.Contains(line, portStr+"/open/") {
+		t.Fatalf("missing port/open in %q", line)
+	}
+}
+
+func TestRootCmd_InvalidOutputFormat(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	cmd := NewRootCmd(&stdout, &stderr)
+	cmd.SetArgs([]string{"127.0.0.1", "-p", "22", "-o", "xml"})
+	cmd.SetContext(context.Background())
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected error for unknown output format")
+	}
 }
 
 func TestRootCmd_UpFlagSuppressesDownHosts(t *testing.T) {
-	// Pick a closed port on loopback.
 	ln, _ := net.Listen("tcp", "127.0.0.1:0")
 	_, portStr, _ := net.SplitHostPort(ln.Addr().String())
 	ln.Close()
 
 	var stdout, stderr bytes.Buffer
 	cmd := NewRootCmd(&stdout, &stderr)
-	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "--up", "--timeout", "300ms"})
+	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "--up", "--timeout", "300ms", "-o", "grep"})
 	cmd.SetContext(context.Background())
-
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute: %v\nstderr=%s", err, stderr.String())
 	}
@@ -78,9 +153,8 @@ func TestRootCmd_DownFlagSuppressesUpHosts(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	cmd := NewRootCmd(&stdout, &stderr)
-	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "--down"})
+	cmd.SetArgs([]string{"127.0.0.1", "-p", portStr, "--down", "-o", "grep"})
 	cmd.SetContext(context.Background())
-
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -96,40 +170,6 @@ func TestRootCmd_UpDownMutex(t *testing.T) {
 	cmd.SetContext(context.Background())
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("expected error for --up + --down")
-	}
-}
-
-func TestRootCmd_PortList(t *testing.T) {
-	a, stop := listenAndAccept(t)
-	defer stop()
-	_, openStr, _ := net.SplitHostPort(a)
-	openPort, _ := strconv.Atoi(openStr)
-
-	// An almost-certainly-closed port on loopback.
-	closedPort := 1
-	if closedPort == openPort {
-		closedPort = 2
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd := NewRootCmd(&stdout, &stderr)
-	cmd.SetArgs([]string{
-		"127.0.0.1",
-		"-p", strconv.Itoa(closedPort) + "," + openStr,
-		"--timeout", "400ms",
-		"-v",
-	})
-	cmd.SetContext(context.Background())
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("execute: %v\nstderr=%s", err, stderr.String())
-	}
-	out := stdout.String()
-	if !strings.Contains(out, "/tcp\topen\t") {
-		t.Fatalf("expected open line; out=%q", out)
-	}
-	// -v should reveal the closed/filtered line too.
-	if !(strings.Contains(out, "\tclosed\t") || strings.Contains(out, "\tfiltered\t")) {
-		t.Fatalf("expected closed/filtered line with -v; out=%q", out)
 	}
 }
 

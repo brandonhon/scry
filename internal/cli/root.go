@@ -5,12 +5,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/bhoneycutt/gscan/internal/output"
 	"github.com/bhoneycutt/gscan/internal/portscan"
 	"github.com/bhoneycutt/gscan/internal/target"
 )
@@ -30,6 +29,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		upFlag          bool
 		downFlag        bool
 		verbose         int
+		outputFlag      string
+		noColorFlag     bool
 	)
 
 	cmd := &cobra.Command{
@@ -39,12 +40,16 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		Args:    cobra.MinimumNArgs(1),
 		Version: Version,
 		Example: `  gscan 127.0.0.1 -p 22
-  gscan 192.168.1.0/24 -p top100
-  gscan 10.0.0.1-50 -p 22,80,443
+  gscan 192.168.1.0/24 -p top100 --up
+  gscan 10.0.0.1-50 -p 22,80,443 -o json
   gscan example.com -p- --timeout 300ms`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if upFlag && downFlag {
 				return fmt.Errorf("--up and --down are mutually exclusive")
+			}
+			format, err := output.ParseFormat(outputFlag)
+			if err != nil {
+				return err
 			}
 			ports, err := portscan.ParsePorts(portsFlag)
 			if err != nil {
@@ -64,7 +69,13 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 				Concurrency: concurrencyFlag,
 				HostParall:  hostParallFlag,
 			}
-			return runScan(cmd.Context(), stdout, it, cfg, scanFilter{up: upFlag, down: downFlag, verbose: verbose})
+
+			writer := output.New(format, stdout, output.Options{
+				Color:   format == output.FormatHuman && output.ShouldColor(stdout, false, noColorFlag),
+				Verbose: verbose,
+			})
+
+			return runScan(cmd.Context(), it, cfg, writer, scanFilter{up: upFlag, down: downFlag})
 		},
 		SilenceUsage: true,
 	}
@@ -82,6 +93,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.BoolVar(&upFlag, "up", false, "Only show hosts with at least one open port")
 	f.BoolVar(&downFlag, "down", false, "Only show hosts with no open ports")
 	f.CountVarP(&verbose, "verbose", "v", "Verbose output (-v shows closed/filtered, -vv shows errors too)")
+	f.StringVarP(&outputFlag, "output", "o", "human", "Output format: human | json | grep")
+	f.BoolVar(&noColorFlag, "no-color", false, "Disable ANSI colour in human output")
 
 	_ = cmd.MarkFlagRequired("ports")
 	return cmd
@@ -89,7 +102,6 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 
 type scanFilter struct {
 	up, down bool
-	verbose  int
 }
 
 func (sf scanFilter) keepHost(hr portscan.HostResult) bool {
@@ -102,70 +114,26 @@ func (sf scanFilter) keepHost(hr portscan.HostResult) bool {
 	return true
 }
 
-func (sf scanFilter) keepPort(r portscan.Result) bool {
-	if r.State == portscan.StateOpen {
-		return true
+func runScan(ctx context.Context, it *target.Iterator, cfg portscan.Config, w output.Writer, sf scanFilter) error {
+	if err := w.Begin(); err != nil {
+		return err
 	}
-	if sf.verbose >= 1 && (r.State == portscan.StateClosed || r.State == portscan.StateFiltered) {
-		return true
-	}
-	if sf.verbose >= 2 && r.State == portscan.StateError {
-		return true
-	}
-	return false
-}
 
-func runScan(ctx context.Context, w io.Writer, it *target.Iterator, cfg portscan.Config, sf scanFilter) error {
-	out := portscan.Scan(ctx, it, cfg)
-	for hr := range out {
+	results := portscan.Scan(ctx, it, cfg)
+	for hr := range results {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		if !sf.keepHost(hr) {
 			continue
 		}
-		if err := writeHost(w, hr, sf); err != nil {
+		if err := w.WriteHost(hr); err != nil {
 			return err
 		}
 	}
-	return ctx.Err()
-}
 
-func writeHost(w io.Writer, hr portscan.HostResult, sf scanFilter) error {
-	header := fmt.Sprintf("%s\t%s\t%s\n",
-		hr.Addr.String(),
-		upStr(hr.Up()),
-		hr.Elapsed.Round(time.Microsecond),
-	)
-	if _, err := io.WriteString(w, header); err != nil {
+	if err := w.End(); err != nil {
 		return err
 	}
-	// Emit per-port results sorted by port for deterministic output.
-	sort.Slice(hr.Results, func(i, j int) bool { return hr.Results[i].Port < hr.Results[j].Port })
-	for _, r := range hr.Results {
-		if !sf.keepPort(r) {
-			continue
-		}
-		line := fmt.Sprintf("  %d/tcp\t%s\t%s", r.Port, r.State, r.RTT.Round(time.Microsecond))
-		if r.State == portscan.StateError && r.Err != nil {
-			line += "\t" + sanitizeErr(r.Err.Error())
-		}
-		if _, err := fmt.Fprintln(w, line); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func upStr(up bool) string {
-	if up {
-		return "up"
-	}
-	return "down"
-}
-
-// sanitizeErr prevents newlines in error messages from breaking TSV output.
-func sanitizeErr(s string) string {
-	s = strings.ReplaceAll(s, "\n", " ")
-	return strings.ReplaceAll(s, "\t", " ")
+	return ctx.Err()
 }

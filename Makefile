@@ -58,6 +58,16 @@ cross: ## Cross-compile release binaries for linux/amd64 and windows/amd64
 	GOOS=linux   GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/$(BIN)-linux-amd64 $(PKG)
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/$(BIN)-windows-amd64.exe $(PKG)
 
+.PHONY: man
+man: ## Generate docs/man/gscan.1
+	go run ./cmd/gen-man docs/man
+
+.PHONY: fuzz
+fuzz: ## Run parser fuzz targets for 30s each
+	go test -fuzz=^FuzzParse$$ -fuzztime=30s -run=_ ./internal/target/...
+	go test -fuzz=^FuzzParseExclude$$ -fuzztime=30s -run=_ ./internal/target/...
+	go test -fuzz=^FuzzParseRange$$ -fuzztime=30s -run=_ ./internal/target/...
+
 .PHONY: clean
 clean: ## Remove build artifacts
 	rm -rf $(OUT_DIR) coverage.out coverage.html

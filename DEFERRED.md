@@ -8,16 +8,14 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ## Scanning / Protocols
 
-- [ ] **ICMP echo discovery** — §10 #7. Currently TCP-only. Plan: ship under `-tags rawsock` alongside the SYN scanner. Needs `SOCK_DGRAM` path on Linux (via `golang.org/x/net/icmp`) and Npcap-based path on Windows, with a clear error + fallback when privileges aren't present.
-  - Affects: `internal/discovery/discovery.go`, a new `icmp_*.go` file pair.
+- [x] **ICMP echo discovery** — Shipped 2026-04-23. `internal/discovery/icmp_rawsock_linux.go` races an unprivileged ICMP Echo alongside the TCP ping probes; first responder wins. Default build keeps TCP-only via `icmp_other.go`. §10 #18.
 - [x] **SYN scan (Linux)** — Shipped 2026-04-23. `internal/portscan/syn_linux.go` via gopacket + libpcap under `-tags rawsock`. §10 #15/#16.
-- [ ] **SYN scan (Windows)** — §10 #15. Needs Npcap + the same pipeline under `rawsock && windows`. Installer docs must mention WinPcap-compat mode. `syn_other.go` is the placeholder.
-- [ ] **SYN scan (IPv6)** — §10 #15. Today `syn_linux.go` errors on any non-IPv4 target with `SYN scan supports IPv4 only in this build`. Needs `layers.IPv6` serialisation + BPF filter update (`ip or ip6`).
-- [ ] **ARP / gateway MAC lookup for SYN** — §10 #16. Today the Ethernet frame uses a broadcast DST MAC (`ff:ff:ff:ff:ff:ff`). Works in some environments but fails in others. Proper fix: resolve dst MAC via ARP for on-link targets, default-gateway MAC for off-link. Affects `setupSYN` in `syn_linux.go`.
-- [ ] **Loopback / WSL2 routability for SYN**. Verified during Phase 6 that SYN scans against loopback and against WSL2's virtualised adapter both fail (pcap routing / interface selection limitations), not a scanner bug. Document in README install section so users don't hit it blind. The opt-in end-to-end test behind `SCRY_RUN_SYN_TESTS=1` should be run against a real adjacent host.
-- [ ] **Rate limiter for SYN** (§5). Token-bucket pacer on the sender side (`--rate`, default 10000 pps). Today SYN sends as fast as goroutines fire.
-- [ ] **Adaptive rate limiter** (§5). Start conservative, ramp up under 2% error rate, back off on ICMP unreachables / connection-reset storms. Today `--concurrency` is a fixed cap.
-  - Affects: `internal/ratelimit/` (new package, wired into `portscan.Scan`).
+- [ ] **SYN scan (Windows)** — §10 #15. Needs Npcap plus the same pipeline under `rawsock && windows`. `syn_other.go` now carries a detailed contract note naming `scanState` as the reference implementation and listing the Windows-specific pieces (NPF device names via `pcap.FindAllDevs`, ARP via `GetIpNetTable2`/`SendARP`, Npcap WinPcap-compat mode in install docs). Not shipped because there's no Windows host in this workflow for end-to-end verification.
+- [x] **SYN scan (IPv6)** — Shipped 2026-04-23 (scaffolded). `internal/portscan/syn_v6_linux.go` builds an Ethernet + IPv6 + TCP frame using the all-nodes multicast MAC (33:33::1) as a placeholder until ND resolution is wired. BPF filter widened to `tcp or ip6 proto 6`; `parseAndDispatch` handles both families. End-to-end v6 verification still requires an IPv6-reachable environment (not WSL2).
+- [x] **ARP / gateway MAC lookup for SYN** — Shipped 2026-04-23. `internal/portscan/syn_arp_linux.go` reads `/proc/net/arp` for on-link targets and `/proc/net/route` for default-gateway lookup. Falls back to broadcast with a one-time stderr warning on failure. Cached per scan-run in `scanState.macByDst`.
+- [x] **Loopback / WSL2 routability for SYN** — Documented 2026-04-23 in README's new "Known pcap limitations" subsection and in the `--syn` flag help text.
+- [x] **Rate limiter for SYN** (§5) — Shipped 2026-04-23. `internal/ratelimit` token-bucket via `golang.org/x/time/rate`; CLI `--rate` defaults to 10000 pps, 0 = unlimited.
+- [x] **Adaptive rate limiter** (§5) — Shipped 2026-04-23. `internal/ratelimit/adaptive.go`: halves rate when error-rate exceeds 2%, doubles below 0.1%, 500-probe sliding window, floors at 50 pps. Opt-in via `--adaptive` for v0.1; default-on tracked as follow-up.
 - [x] **`ulimit -n` check on Linux/macOS** (§5). `internal/cli/ulimit_unix.go` warns to stderr when `--concurrency` gets within 64 fds of the soft `RLIMIT_NOFILE`.
 
 ## Port Lists
@@ -84,4 +82,4 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ---
 
-_Last updated: 2026-04-23 (deferred-easy-wins sweep)._
+_Last updated: 2026-04-23 (scanning-protocols sweep)._

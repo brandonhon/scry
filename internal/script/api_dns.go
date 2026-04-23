@@ -13,7 +13,7 @@ func buildDNSTable(L *lua.LState) *lua.LTable {
 	return t
 }
 
-// dnsReverse: gscan.dns.reverse(ip) -> string|nil, err?
+// dnsReverse: scry.dns.reverse(ip) -> string|nil, err?
 func dnsReverse(L *lua.LState) int {
 	ip := L.CheckString(1)
 	names, err := net.DefaultResolver.LookupAddr(L.Context(), ip)
@@ -32,7 +32,7 @@ func dnsReverse(L *lua.LState) int {
 	return 2
 }
 
-// dnsLookup: gscan.dns.lookup(host) -> {ips...}, err?
+// dnsLookup: scry.dns.lookup(host) -> {ips...}, err?
 func dnsLookup(L *lua.LState) int {
 	host := L.CheckString(1)
 	ips, err := net.DefaultResolver.LookupIP(L.Context(), "ip", host)

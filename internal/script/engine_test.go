@@ -149,7 +149,7 @@ func TestAPI_TCPRequest_ReadsBanner(t *testing.T) {
 description = "tcp test"
 ports = {`+pStr+`}
 function run(host, port)
-  local body, err = gscan.tcp.request(host, port, "", {timeout=500, max_bytes=64})
+  local body, err = scry.tcp.request(host, port, "", {timeout=500, max_bytes=64})
   if err then return nil, err end
   return body
 end
@@ -173,7 +173,7 @@ func TestAPI_UtilHex(t *testing.T) {
 description = "hex"
 ports = "any"
 function run(h, p)
-  return gscan.util.hex("abc")
+  return scry.util.hex("abc")
 end
 `)
 	s, _ := Load(p)

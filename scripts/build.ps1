@@ -1,6 +1,6 @@
 # scripts\build.ps1
 #
-# Build/test helper for gscan on Windows. Mirrors the Makefile targets.
+# Build/test helper for scry on Windows. Mirrors the Makefile targets.
 #
 # Usage:
 #   .\scripts\build.ps1 build
@@ -15,8 +15,8 @@ param(
     [ValidateSet('build', 'install', 'test', 'test-race', 'cover', 'fmt', 'vet', 'tidy', 'ci', 'cross', 'clean', 'run', 'help')]
     [string]$Target = 'build',
 
-    [string]$Bin = 'gscan',
-    [string]$Pkg = './cmd/gscan',
+    [string]$Bin = 'scry',
+    [string]$Pkg = './cmd/scry',
     [string]$OutDir = 'bin',
     [int]$Port = 22
 )
@@ -33,7 +33,7 @@ function Get-Version {
 }
 
 $Version = Get-Version
-$LdFlags = "-s -w -X github.com/bhoneycutt/gscan/internal/cli.Version=$Version"
+$LdFlags = "-s -w -X github.com/bhoneycutt/scry/internal/cli.Version=$Version"
 
 function Ensure-OutDir {
     if (-not (Test-Path $OutDir)) {
@@ -108,7 +108,7 @@ function Cmd-Help {
 Usage: .\scripts\build.ps1 <target> [-Port N]
 
 Targets:
-  build       Build the gscan binary for Windows
+  build       Build the scry binary for Windows
   install     go install into %GOBIN%
   test        Run unit tests
   test-race   Run unit tests with the race detector

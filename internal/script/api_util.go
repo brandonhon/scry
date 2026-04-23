@@ -13,14 +13,14 @@ func buildUtilTable(L *lua.LState) *lua.LTable {
 	return t
 }
 
-// utilHex: gscan.util.hex(bytes) -> string (lowercase hex)
+// utilHex: scry.util.hex(bytes) -> string (lowercase hex)
 func utilHex(L *lua.LState) int {
 	b := L.CheckString(1)
 	L.Push(lua.LString(hex.EncodeToString([]byte(b))))
 	return 1
 }
 
-// utilUnhex: gscan.util.unhex(hex) -> bytes|nil, err?
+// utilUnhex: scry.util.unhex(hex) -> bytes|nil, err?
 func utilUnhex(L *lua.LState) int {
 	s := L.CheckString(1)
 	b, err := hex.DecodeString(s)

@@ -9,7 +9,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/bhoneycutt/gscan/internal/portscan"
+	"github.com/bhoneycutt/scry/internal/portscan"
 )
 
 // humanWriter renders a lipgloss-styled block per host.

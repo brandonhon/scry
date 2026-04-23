@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/bhoneycutt/gscan/internal/portscan"
+	"github.com/bhoneycutt/scry/internal/portscan"
 )
 
 // Format selects the renderer.

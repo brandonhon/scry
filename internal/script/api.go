@@ -4,7 +4,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-// registerAPI installs the `gscan` table and its submodules onto L.
+// registerAPI installs the `scry` table and its submodules onto L.
 // Every call to runOne opens a fresh state, so this is the single
 // entry point for API surface.
 func registerAPI(L *lua.LState) {
@@ -16,7 +16,7 @@ func registerAPI(L *lua.LState) {
 	L.SetField(root, "log", buildLogTable(L))
 	L.SetField(root, "util", buildUtilTable(L))
 
-	L.SetGlobal("gscan", root)
+	L.SetGlobal("scry", root)
 }
 
 // optTable is a small helper: pulls a numeric value out of a table

@@ -1,7 +1,7 @@
 // Package target parses target specifications (IPs, ranges, CIDR, hostnames,
 // @file references) into a lazy iterator of addresses.
 //
-// Supported input forms (see §4.1 of ip-scanner-plan.md):
+// Supported input forms (see §4.1 of scry-plan.md):
 //
 //	192.168.1.10                  single IPv4
 //	::1                           single IPv6

@@ -1,6 +1,6 @@
 version: 2
 
-project_name: gscan
+project_name: scry
 
 before:
   hooks:
@@ -8,9 +8,9 @@ before:
     - go run ./cmd/gen-man docs/man
 
 builds:
-  - id: gscan
-    main: ./cmd/gscan
-    binary: gscan
+  - id: scry
+    main: ./cmd/scry
+    binary: scry
     env:
       - CGO_ENABLED=0
       - GO111MODULE=on
@@ -26,10 +26,10 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/bhoneycutt/gscan/internal/cli.Version={{ .Version }}
+      - -X github.com/bhoneycutt/scry/internal/cli.Version={{ .Version }}
 
 archives:
-  - id: gscan
+  - id: scry
     formats:
       - tar.gz
     format_overrides:
@@ -41,7 +41,7 @@ archives:
       - README.md
       - scripts/*.lua
       - scripts/README.md
-      - docs/man/gscan.1
+      - docs/man/scry.1
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
 

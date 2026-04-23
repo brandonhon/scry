@@ -22,7 +22,7 @@ func buildTCPTable(L *lua.LState) *lua.LTable {
 	return t
 }
 
-// tcpRequest implements gscan.tcp.request(host, port, payload, opts?).
+// tcpRequest implements scry.tcp.request(host, port, payload, opts?).
 // Opts supported: timeout (ms), max_bytes.
 // Returns (string, nil) on success, (nil, string) on error.
 func tcpRequest(L *lua.LState) int {

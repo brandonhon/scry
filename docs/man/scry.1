@@ -1,16 +1,16 @@
 .nh
-.TH "GSCAN" "1" "Apr 2026" "gscan dev" "gscan Manual"
+.TH "SCRY" "1" "Apr 2026" "scry dev" "scry Manual"
 
 .SH NAME
-gscan - Fast IP/port scanner
+scry - Fast IP/port scanner
 
 
 .SH SYNOPSIS
-\fBgscan [TARGETS...] [flags]\fP
+\fBscry [TARGETS...] [flags]\fP
 
 
 .SH DESCRIPTION
-gscan is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and optional banner grab.
+scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and optional banner grab.
 
 
 .SH OPTIONS
@@ -31,7 +31,7 @@ gscan is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and
 
 .PP
 \fB-h\fP, \fB--help\fP[=false]
-	help for gscan
+	help for scry
 
 .PP
 \fB--max-hosts\fP=50
@@ -92,11 +92,11 @@ gscan is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and
 
 .SH EXAMPLE
 .EX
-  gscan 127.0.0.1 -p 22
-  gscan 192.168.1.0/24 -p top100 --up
-  gscan 10.0.0.1-50 -p 22,80,443 --banner
-  gscan 10.0.0.0/24 --sn               # host discovery only (alias for --ping-only)
-  gscan example.com -p- --timeout 300ms
+  scry 127.0.0.1 -p 22
+  scry 192.168.1.0/24 -p top100 --up
+  scry 10.0.0.1-50 -p 22,80,443 --banner
+  scry 10.0.0.0/24 --sn               # host discovery only (alias for --ping-only)
+  scry example.com -p- --timeout 300ms
 .EE
 
 

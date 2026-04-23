@@ -9,18 +9,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bhoneycutt/gscan/internal/output"
-	"github.com/bhoneycutt/gscan/internal/portscan"
-	"github.com/bhoneycutt/gscan/internal/progress"
-	"github.com/bhoneycutt/gscan/internal/resolver"
-	"github.com/bhoneycutt/gscan/internal/script"
-	"github.com/bhoneycutt/gscan/internal/target"
+	"github.com/bhoneycutt/scry/internal/output"
+	"github.com/bhoneycutt/scry/internal/portscan"
+	"github.com/bhoneycutt/scry/internal/progress"
+	"github.com/bhoneycutt/scry/internal/resolver"
+	"github.com/bhoneycutt/scry/internal/script"
+	"github.com/bhoneycutt/scry/internal/target"
 )
 
 // Version is set at build time via -ldflags "-X ...Version=vX.Y.Z".
 var Version = "dev"
 
-// NewRootCmd builds the gscan root cobra command.
+// NewRootCmd builds the scry root cobra command.
 func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	var (
 		portsFlag       string
@@ -43,16 +43,16 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "gscan [TARGETS...]",
+		Use:     "scry [TARGETS...]",
 		Short:   "Fast IP/port scanner",
-		Long:    "gscan is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and optional banner grab.",
+		Long:    "scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and optional banner grab.",
 		Args:    cobra.MinimumNArgs(1),
 		Version: Version,
-		Example: `  gscan 127.0.0.1 -p 22
-  gscan 192.168.1.0/24 -p top100 --up
-  gscan 10.0.0.1-50 -p 22,80,443 --banner
-  gscan 10.0.0.0/24 --sn               # host discovery only (alias for --ping-only)
-  gscan example.com -p- --timeout 300ms`,
+		Example: `  scry 127.0.0.1 -p 22
+  scry 192.168.1.0/24 -p top100 --up
+  scry 10.0.0.1-50 -p 22,80,443 --banner
+  scry 10.0.0.0/24 --sn               # host discovery only (alias for --ping-only)
+  scry example.com -p- --timeout 300ms`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if upFlag && downFlag {
 				return fmt.Errorf("--up and --down are mutually exclusive")

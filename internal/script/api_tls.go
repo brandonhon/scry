@@ -20,7 +20,7 @@ func buildTLSTable(L *lua.LState) *lua.LTable {
 	return t
 }
 
-// tlsRequest: gscan.tls.request(host, port, payload, opts?).
+// tlsRequest: scry.tls.request(host, port, payload, opts?).
 // opts.verify (bool, default false), opts.timeout (ms), opts.max_bytes (int).
 func tlsRequest(L *lua.LState) int {
 	host := L.CheckString(1)
@@ -43,7 +43,7 @@ func tlsRequest(L *lua.LState) int {
 	return 2
 }
 
-// tlsCert: gscan.tls.cert(host, port, opts?).
+// tlsCert: scry.tls.cert(host, port, opts?).
 // Returns a table {subject, issuer, not_before, not_after, dns_names}, or nil+err.
 func tlsCert(L *lua.LState) int {
 	host := L.CheckString(1)

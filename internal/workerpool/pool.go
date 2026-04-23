@@ -1,5 +1,5 @@
 // Package workerpool provides a two-level bounded-concurrency helper for
-// the scanner (see §5 of ip-scanner-plan.md).
+// the scanner (see §5 of scry-plan.md).
 //
 // Two semaphores are exposed:
 //

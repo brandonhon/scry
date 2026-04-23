@@ -1,6 +1,6 @@
-// Command gscan is a fast IP/port scanner.
+// Command scry is a fast IP/port scanner.
 //
-// See ip-scanner-plan.md for the full design.
+// See scry-plan.md for the full design.
 package main
 
 import (
@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/bhoneycutt/gscan/internal/cli"
-	"github.com/bhoneycutt/gscan/internal/output"
+	"github.com/bhoneycutt/scry/internal/cli"
+	"github.com/bhoneycutt/scry/internal/output"
 )
 
 func main() {

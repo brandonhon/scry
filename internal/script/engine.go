@@ -1,5 +1,5 @@
 // Package script embeds a Lua 5.1 runtime (gopher-lua) so users can
-// write small probes that run against open ports. See ip-scanner-plan.md
+// write small probes that run against open ports. See scry-plan.md
 // §7 for the design discussion.
 //
 // A script defines three globals:
@@ -13,7 +13,7 @@
 //
 // A fresh Lua state is created for each run, so scripts cannot leak
 // state between invocations. The API surface is registered under the
-// global `gscan` table; see api*.go for details.
+// global `scry` table; see api*.go for details.
 package script
 
 import (

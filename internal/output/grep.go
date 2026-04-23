@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bhoneycutt/gscan/internal/portscan"
+	"github.com/bhoneycutt/scry/internal/portscan"
 )
 
 // grepWriter emits one line per host, grep-friendly. Example:

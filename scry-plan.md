@@ -2,7 +2,7 @@
 
 A CLI-first network scanner written in Go, targeting Linux and Windows. Goal: rival nmap and Angry IP Scanner on speed and ergonomics, with clean output and a scripting hook.
 
-Working name placeholder: `gscan` (replace as desired).
+Working name placeholder: `scry` (replace as desired).
 
 ---
 
@@ -43,9 +43,9 @@ Working name placeholder: `gscan` (replace as desired).
 ## 3. Repository layout
 
 ```
-gscan/
+scry/
 ├── cmd/
-│   └── gscan/
+│   └── scry/
 │       └── main.go              # cobra root + version
 ├── internal/
 │   ├── cli/                     # cobra commands, flag wiring
@@ -164,13 +164,13 @@ The speed story is mostly about two things: bounded parallelism and avoiding sys
 | Concern | Linux | Windows |
 |---|---|---|
 | TCP connect scan | works out of the box | works out of the box |
-| SYN scan | needs `CAP_NET_RAW` or root; `setcap cap_net_raw+ep ./gscan` in install docs | requires Npcap installed in WinPcap-compat mode; document in README |
+| SYN scan | needs `CAP_NET_RAW` or root; `setcap cap_net_raw+ep ./scry` in install docs | requires Npcap installed in WinPcap-compat mode; document in README |
 | ICMP ping | unprivileged ICMP on modern kernels (`/proc/sys/net/ipv4/ping_group_range`) else raw | raw ICMP via Npcap under `--syn`-style path, or fall back to TCP ping |
 | ANSI color | native | enable VT processing via `golang.org/x/sys/windows/console` at startup; lipgloss handles most of it |
 | File paths | — | use `filepath` everywhere (never `path` for FS) |
-| Defaults | `~/.config/gscan/` | `%APPDATA%\gscan\` |
+| Defaults | `~/.config/scry/` | `%APPDATA%\scry\` |
 
-Cross-compile from one host: `GOOS=windows GOARCH=amd64 go build ./cmd/gscan`. Ship both via GitHub Releases with checksums.
+Cross-compile from one host: `GOOS=windows GOARCH=amd64 go build ./cmd/scry`. Ship both via GitHub Releases with checksums.
 
 ---
 
@@ -187,13 +187,13 @@ Ship our own Lua 5.1 runtime via `gopher-lua` with a documented API:
 description = "Grab HTTP title from open 80/443"
 ports = {80, 443, 8080, 8443}
 function run(host, port)
-  local body, err = gscan.tcp.request(host, port, "GET / HTTP/1.0\r\n\r\n", {timeout=3000})
+  local body, err = scry.tcp.request(host, port, "GET / HTTP/1.0\r\n\r\n", {timeout=3000})
   if err then return nil end
   local title = body:match("<title>(.-)</title>")
   if title then return "title: " .. title end
 end
 ```
-Document the `gscan.*` API surface: `tcp.connect`, `tcp.request`, `udp.send`, `dns.lookup`, `log.info`, `util.hex`, etc. This is achievable in a phase or two of work.
+Document the `scry.*` API surface: `tcp.connect`, `tcp.request`, `udp.send`, `dns.lookup`, `log.info`, `util.hex`, etc. This is achievable in a phase or two of work.
 
 **Option B — NSE compatibility shim (stretch / v2).**
 Same engine as A, but also expose an `nmap.*` module that implements the most-used NSE helpers (`nmap.new_socket`, `stdnse.get_script_args`, `shortport.port_or_service`). Many simple NSE scripts would then run unmodified. Complex ones (anything using `brute`, `creds`, or binary protocol libs) won't. Be upfront in docs about the compatibility matrix.
@@ -208,14 +208,14 @@ If nmap is installed, pass `--script` through to it. This is fast to build and g
 ## 8. CLI design
 
 ```
-gscan [TARGETS...] [flags]
+scry [TARGETS...] [flags]
 
 Examples:
-  gscan 192.168.1.0/24
-  gscan 10.0.0.1-50 -p 22,80,443
-  gscan example.com -p- --syn
-  gscan @hosts.txt -p top1000 --up --json > results.ndjson
-  gscan 10.0.0.0/16 -p 22 --script scripts/ssh-banner.lua
+  scry 192.168.1.0/24
+  scry 10.0.0.1-50 -p 22,80,443
+  scry example.com -p- --syn
+  scry @hosts.txt -p top1000 --up --json > results.ndjson
+  scry 10.0.0.0/16 -p 22 --script scripts/ssh-banner.lua
 
 Flags:
   -p, --ports           Ports: "22", "22,80", "1-1024", "-", "top100"
@@ -245,7 +245,7 @@ Flags:
 - `internal/target` with full parser + iterator + tests.
 - TCP connect scanner against a single host, single port.
 - Plain text output.
-- *Exit criteria:* `gscan 127.0.0.1 -p 22` works on Linux and Windows.
+- *Exit criteria:* `scry 127.0.0.1 -p 22` works on Linux and Windows.
 
 **Phase 2 — Core scanner**
 - Worker pool, bounded concurrency.
@@ -253,7 +253,7 @@ Flags:
 - CIDR + range iteration with proper memory behavior.
 - Timeouts, retries, per-host latency tracking.
 - `--up` / `--down` filtering.
-- *Exit criteria:* `gscan 192.168.1.0/24 -p top100` completes in single-digit seconds on LAN.
+- *Exit criteria:* `scry 192.168.1.0/24 -p top100` completes in single-digit seconds on LAN.
 
 **Phase 3 — Output polish**
 - lipgloss table renderer with live update.
@@ -269,7 +269,7 @@ Flags:
 - *Exit criteria:* Host-up detection matches nmap `-sn` within a reasonable margin on a test network.
 
 **Phase 5 — Scripting engine**
-- Embed gopher-lua, define `gscan.*` API.
+- Embed gopher-lua, define `scry.*` API.
 - Script loading, `ports` / `description` metadata, `run(host, port)` entry point.
 - Ship 3-5 example scripts: http-title, ssh-banner, tls-cert-info, smb-version, redis-ping.
 - *Exit criteria:* Writing a new useful script takes <20 lines of Lua.
@@ -292,7 +292,7 @@ Flags:
 
 Decisions made during implementation. Update this list as decisions are revisited.
 
-1. **Final name:** `gscan` — kept as the working name. Homebrew collision to be resolved at release time (rename or namespace decision deferred until we actually ship a tap). _Decided 2026-04-23, Phase 1._
+1. **Final name:** `scry` — the verb "to scry" (peer into something to see what's there). Four characters, no existing Homebrew formula, no Go-module collision, distinct from `scan`/`probe`/`sonar`. Earlier working name was `gscan`; dropped because of a Homebrew conflict. Module path is `github.com/bhoneycutt/scry`; binary is `scry`; Lua API surface renamed `scry.*` in scripts. _Finalised 2026-04-23, post-Phase 7._
 2. **SYN scan scope:** v2. v1 ships with TCP connect only. Raw-socket path will be build-tag gated (`-tags rawsock`) when added, so the default binary stays CGO-free and dependency-free. _Decided 2026-04-23, Phase 1._
 3. **Scripting engine:** Option A — custom Lua API via `gopher-lua`. No NSE compatibility shim in v1. _Decided 2026-04-23, Phase 1._
 4. **License:** MIT. Permissive, dominant in the Go ecosystem, no copyleft concerns for users embedding or forking. _Decided 2026-04-23, Phase 1._
@@ -300,10 +300,10 @@ Decisions made during implementation. Update this list as decisions are revisite
 6. **Config file:** Flags-only for v1. No viper yet. Revisit once the flag surface stabilizes and users ask for it. _Decided 2026-04-23, Phase 1._
 7. **ICMP echo in Phase 4:** Deferred to Phase 6. Host-up detection in Phase 4 uses TCP probes only — either the normal port scan, or (in `-sn`/`--ping-only` mode) a short list of common TCP ports (22/80/443/445/3389) where any response (open/closed/RST) counts as up. ICMP will ship alongside SYN scanning under the `rawsock` build tag so the default binary stays CGO- and privilege-free. _Decided 2026-04-23, Phase 4._
 8. **Progress indicator:** Added in Phase 4 (originally unscoped). Rendered on stderr via `github.com/schollz/progressbar/v3` only when stderr is a TTY; auto-suppressed for pipes so output formats stay cleanly pipeable. _Decided 2026-04-23, Phase 4, in response to user request: "during the scans it needs to show some type of progress so the user know the tool is working properly."_
-9. **UDP in Lua API:** Deferred. `gscan.udp.send` is not exposed in v1; the Phase 5 scripting surface is TCP-only (`tcp.request`, `tls.request`, `tls.cert`). Add UDP when a concrete script actually needs it (DNS-over-UDP, SNMP). _Decided 2026-04-23, Phase 5._
+9. **UDP in Lua API:** Deferred. `scry.udp.send` is not exposed in v1; the Phase 5 scripting surface is TCP-only (`tcp.request`, `tls.request`, `tls.cert`). Add UDP when a concrete script actually needs it (DNS-over-UDP, SNMP). _Decided 2026-04-23, Phase 5._
 10. **Script isolation:** One fresh `lua.LState` per script invocation. Slower than pooling but goroutine-safe by construction and prevents scripts leaking state between hosts. Revisit only if scripting becomes a measurable hotspot. _Decided 2026-04-23, Phase 5._
 11. **SIGINT semantics:** Ctrl-C cancels the context and refuses new hosts, but every host already in flight completes its probes and its result is flushed to output before the command exits. Implemented via unconditional channel send on the scanner side and a drain-until-close loop on the CLI side. _Decided 2026-04-23, Phase 7._
-12. **Man page generator:** Stand-alone `cmd/gen-man` runs from `make man`; produces `docs/man/gscan.1`. Not built into the shipped `gscan` binary so `cobra/doc` stays out of the release artifact. _Decided 2026-04-23, Phase 7._
+12. **Man page generator:** Stand-alone `cmd/gen-man` runs from `make man`; produces `docs/man/scry.1`. Not built into the shipped `scry` binary so `cobra/doc` stays out of the release artifact. _Decided 2026-04-23, Phase 7._
 13. **Release tooling:** goreleaser for GitHub Releases. Matrix: linux/{amd64,arm64}, windows/amd64, darwin/{amd64,arm64}. windows/arm64 intentionally excluded (not on any demand path today). CGO disabled across the board. _Decided 2026-04-23, Phase 7._
 14. **Phase ordering:** Phase 6 (SYN scan + ICMP) was skipped in favour of Phase 7 hardening so a shippable v1 exists before the raw-socket infrastructure lands. Phase 6 remains queued in `DEFERRED.md` and will ship under `-tags rawsock`. _Decided 2026-04-23, Phase 7._
 

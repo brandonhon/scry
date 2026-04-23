@@ -6,13 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bhoneycutt/gscan/internal/banner"
-	"github.com/bhoneycutt/gscan/internal/discovery"
-	"github.com/bhoneycutt/gscan/internal/progress"
-	"github.com/bhoneycutt/gscan/internal/resolver"
-	"github.com/bhoneycutt/gscan/internal/script"
-	"github.com/bhoneycutt/gscan/internal/target"
-	"github.com/bhoneycutt/gscan/internal/workerpool"
+	"github.com/bhoneycutt/scry/internal/banner"
+	"github.com/bhoneycutt/scry/internal/discovery"
+	"github.com/bhoneycutt/scry/internal/progress"
+	"github.com/bhoneycutt/scry/internal/resolver"
+	"github.com/bhoneycutt/scry/internal/script"
+	"github.com/bhoneycutt/scry/internal/target"
+	"github.com/bhoneycutt/scry/internal/workerpool"
 )
 
 // Config tunes a Scan run.

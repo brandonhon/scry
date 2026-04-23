@@ -1,4 +1,4 @@
-module github.com/bhoneycutt/gscan
+module github.com/bhoneycutt/scry
 
 go 1.23
 

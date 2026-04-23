@@ -1,6 +1,6 @@
-// Command gen-man generates the gscan(1) man page from the cobra tree.
+// Command gen-man generates the scry(1) man page from the cobra tree.
 //
-// Invoked from `make man`. Not shipped in the gscan binary itself, so
+// Invoked from `make man`. Not shipped in the scry binary itself, so
 // cobra/doc stays out of the release artifact.
 //
 // Usage: gen-man <output-dir>
@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra/doc"
 
-	"github.com/bhoneycutt/gscan/internal/cli"
+	"github.com/bhoneycutt/scry/internal/cli"
 )
 
 func main() {
@@ -29,10 +29,10 @@ func main() {
 
 	root := cli.NewRootCmd(io.Discard, io.Discard)
 	header := &doc.GenManHeader{
-		Title:   "GSCAN",
+		Title:   "SCRY",
 		Section: "1",
-		Source:  "gscan " + cli.Version,
-		Manual:  "gscan Manual",
+		Source:  "scry " + cli.Version,
+		Manual:  "scry Manual",
 	}
 	if err := doc.GenManTree(root, header, outDir); err != nil {
 		fmt.Fprintln(os.Stderr, err)

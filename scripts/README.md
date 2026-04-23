@@ -1,8 +1,8 @@
-# gscan example scripts
+# scry example scripts
 
 Each script is a small Lua 5.1 program (via gopher-lua) that runs against an
 open port during a scan. Load them with `--script scripts/<name>.lua`
-(repeatable). See `ip-scanner-plan.md` §7 for the design rationale.
+(repeatable). See `scry-plan.md` §7 for the design rationale.
 
 ## Shape
 
@@ -17,17 +17,17 @@ end
 A fresh Lua state is created for every invocation, so scripts cannot leak
 state between calls.
 
-## API surface (`gscan.*`)
+## API surface (`scry.*`)
 
 | Function                                         | Purpose                                         |
 |--------------------------------------------------|-------------------------------------------------|
-| `gscan.tcp.request(host, port, payload, opts)`   | Connect, write payload, read up to `max_bytes`. |
-| `gscan.tls.request(host, port, payload, opts)`   | Same over TLS; `opts.verify` defaults to false. |
-| `gscan.tls.cert(host, port, opts)`               | Return leaf cert: subject, issuer, dates, sans. |
-| `gscan.dns.lookup(host)`                         | Forward A/AAAA lookup.                          |
-| `gscan.dns.reverse(ip)`                          | PTR lookup.                                     |
-| `gscan.log.info / warn / error`                  | Structured log at `source=script`.              |
-| `gscan.util.hex / unhex`                         | Hex encode/decode arbitrary bytes.              |
+| `scry.tcp.request(host, port, payload, opts)`   | Connect, write payload, read up to `max_bytes`. |
+| `scry.tls.request(host, port, payload, opts)`   | Same over TLS; `opts.verify` defaults to false. |
+| `scry.tls.cert(host, port, opts)`               | Return leaf cert: subject, issuer, dates, sans. |
+| `scry.dns.lookup(host)`                         | Forward A/AAAA lookup.                          |
+| `scry.dns.reverse(ip)`                          | PTR lookup.                                     |
+| `scry.log.info / warn / error`                  | Structured log at `source=script`.              |
+| `scry.util.hex / unhex`                         | Hex encode/decode arbitrary bytes.              |
 
 All network calls respect a per-script timeout (`--script-timeout`, default 5s).
 Option tables commonly accept `timeout` (milliseconds) and `max_bytes` (int).
@@ -42,7 +42,7 @@ Option tables commonly accept `timeout` (milliseconds) and `max_bytes` (int).
 Usage:
 
 ```sh
-gscan 10.0.0.0/24 -p 22,80,443,6379 \
+scry 10.0.0.0/24 -p 22,80,443,6379 \
     --script scripts/http-title.lua \
     --script scripts/ssh-banner.lua \
     --script scripts/tls-cert-info.lua \

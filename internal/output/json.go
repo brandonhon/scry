@@ -6,11 +6,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/bhoneycutt/gscan/internal/portscan"
+	"github.com/bhoneycutt/scry/internal/portscan"
 )
 
 // jsonWriter emits one host per line (NDJSON). Designed for pipelines:
-// `gscan ... -o json | jq ...`.
+// `scry ... -o json | jq ...`.
 type jsonWriter struct {
 	w    io.Writer
 	opts Options

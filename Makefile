@@ -1,12 +1,12 @@
-# Makefile for gscan. Run `make help` for a list of targets.
+# Makefile for scry. Run `make help` for a list of targets.
 
 export GO111MODULE := on
 
-BIN       ?= gscan
-PKG       := ./cmd/gscan
+BIN       ?= scry
+PKG       := ./cmd/scry
 OUT_DIR   ?= bin
 VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS   := -s -w -X github.com/bhoneycutt/gscan/internal/cli.Version=$(VERSION)
+LDFLAGS   := -s -w -X github.com/bhoneycutt/scry/internal/cli.Version=$(VERSION)
 GOFLAGS   ?=
 
 .DEFAULT_GOAL := build
@@ -16,12 +16,12 @@ help: ## Show this help
 	@awk 'BEGIN{FS=":.*##"; printf "Targets:\n"} /^[a-zA-Z0-9._-]+:.*##/ {printf "  %-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 .PHONY: build
-build: ## Build the gscan binary for the host platform
+build: ## Build the scry binary for the host platform
 	@mkdir -p $(OUT_DIR)
 	go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/$(BIN) $(PKG)
 
 .PHONY: install
-install: ## Install gscan into $$GOBIN
+install: ## Install scry into $$GOBIN
 	go install $(GOFLAGS) -ldflags "$(LDFLAGS)" $(PKG)
 
 .PHONY: test
@@ -59,7 +59,7 @@ cross: ## Cross-compile release binaries for linux/amd64 and windows/amd64
 	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(OUT_DIR)/$(BIN)-windows-amd64.exe $(PKG)
 
 .PHONY: man
-man: ## Generate docs/man/gscan.1
+man: ## Generate docs/man/scry.1
 	go run ./cmd/gen-man docs/man
 
 .PHONY: fuzz

@@ -1,14 +1,12 @@
 // Package cli wires cobra commands onto the internal packages.
-//
-// Phase 1 scope: one command (gscan), TCP connect to a single port per host.
 package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"strconv"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -20,28 +18,38 @@ import (
 // Version is set at build time via -ldflags "-X ...Version=vX.Y.Z".
 var Version = "dev"
 
-// NewRootCmd builds the gscan root cobra command. stdout/stderr are injected
-// for testability; main.go wires them to os.Stdout / os.Stderr.
+// NewRootCmd builds the gscan root cobra command.
 func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	var (
-		portsFlag   string
-		timeoutFlag time.Duration
-		excludeFlag []string
+		portsFlag       string
+		timeoutFlag     time.Duration
+		excludeFlag     []string
+		concurrencyFlag int
+		hostParallFlag  int
+		retriesFlag     int
+		upFlag          bool
+		downFlag        bool
+		verbose         int
 	)
 
 	cmd := &cobra.Command{
 		Use:     "gscan [TARGETS...]",
 		Short:   "Fast IP/port scanner",
-		Long:    "gscan is a fast TCP/IP scanner. Phase 1 performs TCP-connect probes on a single port.",
+		Long:    "gscan is a fast TCP/IP scanner with TCP-connect probes and bounded concurrency.",
 		Args:    cobra.MinimumNArgs(1),
 		Version: Version,
-		Example: "  gscan 127.0.0.1 -p 22\n  gscan 192.168.1.0/30 -p 80\n  gscan example.com -p 443",
+		Example: `  gscan 127.0.0.1 -p 22
+  gscan 192.168.1.0/24 -p top100
+  gscan 10.0.0.1-50 -p 22,80,443
+  gscan example.com -p- --timeout 300ms`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			port, err := parseSinglePort(portsFlag)
+			if upFlag && downFlag {
+				return fmt.Errorf("--up and --down are mutually exclusive")
+			}
+			ports, err := portscan.ParsePorts(portsFlag)
 			if err != nil {
 				return err
 			}
-
 			it, err := target.Parse(args, target.Options{
 				Excludes: excludeFlag,
 				Context:  cmd.Context(),
@@ -49,65 +57,115 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			return runScan(cmd.Context(), stdout, it, port, timeoutFlag)
+			cfg := portscan.Config{
+				Ports:       ports,
+				Timeout:     timeoutFlag,
+				Retries:     retriesFlag,
+				Concurrency: concurrencyFlag,
+				HostParall:  hostParallFlag,
+			}
+			return runScan(cmd.Context(), stdout, it, cfg, scanFilter{up: upFlag, down: downFlag, verbose: verbose})
 		},
-		SilenceUsage:  true,
-		SilenceErrors: false,
+		SilenceUsage: true,
 	}
 
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
 
 	f := cmd.Flags()
-	f.StringVarP(&portsFlag, "ports", "p", "", "Port to scan (Phase 1: single port; full syntax lands in Phase 2)")
+	f.StringVarP(&portsFlag, "ports", "p", "", "Ports: 22 | 22,80 | 1-1024 | - | top100 | top1000")
 	f.DurationVar(&timeoutFlag, "timeout", 1500*time.Millisecond, "Per-probe dial timeout")
 	f.StringSliceVar(&excludeFlag, "exclude", nil, "Addresses/ranges/CIDRs to skip (comma-separated, repeatable)")
+	f.IntVar(&concurrencyFlag, "concurrency", 1000, "Max parallel sockets in flight")
+	f.IntVar(&hostParallFlag, "max-hosts", 50, "Max hosts probed in parallel")
+	f.IntVar(&retriesFlag, "retries", 1, "Retries on filtered (timeout) probes")
+	f.BoolVar(&upFlag, "up", false, "Only show hosts with at least one open port")
+	f.BoolVar(&downFlag, "down", false, "Only show hosts with no open ports")
+	f.CountVarP(&verbose, "verbose", "v", "Verbose output (-v shows closed/filtered, -vv shows errors too)")
 
 	_ = cmd.MarkFlagRequired("ports")
-
 	return cmd
 }
 
-// runScan iterates targets and probes one port on each, writing one line per
-// result to w.
-func runScan(ctx context.Context, w io.Writer, it *target.Iterator, port uint16, timeout time.Duration) error {
-	for {
+type scanFilter struct {
+	up, down bool
+	verbose  int
+}
+
+func (sf scanFilter) keepHost(hr portscan.HostResult) bool {
+	if sf.up && !hr.Up() {
+		return false
+	}
+	if sf.down && hr.Up() {
+		return false
+	}
+	return true
+}
+
+func (sf scanFilter) keepPort(r portscan.Result) bool {
+	if r.State == portscan.StateOpen {
+		return true
+	}
+	if sf.verbose >= 1 && (r.State == portscan.StateClosed || r.State == portscan.StateFiltered) {
+		return true
+	}
+	if sf.verbose >= 2 && r.State == portscan.StateError {
+		return true
+	}
+	return false
+}
+
+func runScan(ctx context.Context, w io.Writer, it *target.Iterator, cfg portscan.Config, sf scanFilter) error {
+	out := portscan.Scan(ctx, it, cfg)
+	for hr := range out {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		addr, ok := it.Next()
-		if !ok {
-			return nil
+		if !sf.keepHost(hr) {
+			continue
 		}
-		res := portscan.TCPConnect(ctx, addr, port, timeout)
-		if err := writeResult(w, res); err != nil {
+		if err := writeHost(w, hr, sf); err != nil {
 			return err
 		}
 	}
+	return ctx.Err()
 }
 
-func writeResult(w io.Writer, r portscan.Result) error {
-	if r.State == portscan.StateError {
-		_, err := fmt.Fprintf(w, "%s:%d\t%s\t%s\t%v\n", r.Addr, r.Port, r.State, r.RTT.Round(time.Microsecond), r.Err)
+func writeHost(w io.Writer, hr portscan.HostResult, sf scanFilter) error {
+	header := fmt.Sprintf("%s\t%s\t%s\n",
+		hr.Addr.String(),
+		upStr(hr.Up()),
+		hr.Elapsed.Round(time.Microsecond),
+	)
+	if _, err := io.WriteString(w, header); err != nil {
 		return err
 	}
-	_, err := fmt.Fprintf(w, "%s:%d\t%s\t%s\n", r.Addr, r.Port, r.State, r.RTT.Round(time.Microsecond))
-	return err
+	// Emit per-port results sorted by port for deterministic output.
+	sort.Slice(hr.Results, func(i, j int) bool { return hr.Results[i].Port < hr.Results[j].Port })
+	for _, r := range hr.Results {
+		if !sf.keepPort(r) {
+			continue
+		}
+		line := fmt.Sprintf("  %d/tcp\t%s\t%s", r.Port, r.State, r.RTT.Round(time.Microsecond))
+		if r.State == portscan.StateError && r.Err != nil {
+			line += "\t" + sanitizeErr(r.Err.Error())
+		}
+		if _, err := fmt.Fprintln(w, line); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// parseSinglePort parses a single TCP port in the range 1..65535.
-// Phase 2 replaces this with the full port-spec parser.
-func parseSinglePort(s string) (uint16, error) {
-	if s == "" {
-		return 0, errors.New("--ports is required")
+func upStr(up bool) string {
+	if up {
+		return "up"
 	}
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		return 0, fmt.Errorf("invalid port %q: %w", s, err)
-	}
-	if n < 1 || n > 65535 {
-		return 0, fmt.Errorf("port %d out of range (1-65535)", n)
-	}
-	return uint16(n), nil
+	return "down"
+}
+
+// sanitizeErr prevents newlines in error messages from breaking TSV output.
+func sanitizeErr(s string) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	return strings.ReplaceAll(s, "\t", " ")
 }

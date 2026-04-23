@@ -9,7 +9,7 @@ This is the working name. See [`scry-plan.md`](./scry-plan.md) for the full proj
 All seven phases merged. Default build is CGO-free and privilege-free; the raw-socket SYN scanner is available under `-tags rawsock` on Linux.
 
 Phases in order:
-1. Target parsing (IPv4+IPv6, ranges, CIDR, hostnames, `@file`).
+1. Target parsing (IPv4, ranges, CIDR, hostnames, `@file`; IPv6 is out of scope — see §10 #22 and [`DEFERRED.md`](./DEFERRED.md)).
 2. Bounded-concurrency TCP-connect scanner; full `-p` syntax with `top100`/`top1000`/`-p-`.
 3. Three output formats: `human` (lipgloss), `json` (NDJSON), `grep`; colour auto-detection.
 4. Host discovery (`--ping-only`/`--sn`), reverse DNS, banner grab, stderr progress bar.
@@ -92,7 +92,7 @@ sudo setcap cap_net_raw,cap_net_admin=eip bin/scry        # grant privileges wit
 - **WSL2**: the virtualised network adapter breaks the same pcap interface assumptions. Neither loopback nor the WSL2 `eth0` route SYN packets correctly through libpcap. Run SYN scans from a real Linux host (bare-metal, VM with bridged networking, or a cloud instance).
 - **Off-link targets**: scry resolves the default gateway's MAC via ARP when sending to hosts outside the local subnet. If that lookup fails the Ethernet frame falls back to broadcast — you'll see a one-time stderr warning. Running with `setcap cap_net_raw,cap_net_admin=eip` is usually what fixes it.
 
-Deferred: Windows Npcap path, IPv6 SYN, ARP/gateway MAC resolution, token-bucket `--rate` pacing. See [`DEFERRED.md`](./DEFERRED.md).
+Deferred: Windows Npcap path. IPv6 lives on the `feat/ipv6-support` branch. See [`DEFERRED.md`](./DEFERRED.md).
 
 ### Output formats
 
@@ -115,10 +115,10 @@ Host: 192.168.1.10	Status: up	Ports: 22/open/ssh,80/open/http	Elapsed: 12ms
 
 Accepted target forms (parser, `internal/target`):
 
-- Single IPv4/IPv6: `192.168.1.10`, `::1`
+- Single IPv4: `192.168.1.10` (IPv6 is out of scope; see §10 #22)
 - Last-octet range: `192.168.1.10-50`
 - Arbitrary range: `192.168.1.10-192.168.2.20`
-- CIDR: `192.168.1.0/24`, `2001:db8::/120`
+- CIDR: `192.168.1.0/24`
 - Hostname: `example.com`
 - File: `@targets.txt` (one entry per line)
 - Comma-separated lists of any of the above

@@ -11,7 +11,7 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 - [x] **ICMP echo discovery** — Shipped 2026-04-23. `internal/discovery/icmp_rawsock_linux.go` races an unprivileged ICMP Echo alongside the TCP ping probes; first responder wins. Default build keeps TCP-only via `icmp_other.go`. §10 #18.
 - [x] **SYN scan (Linux)** — Shipped 2026-04-23. `internal/portscan/syn_linux.go` via gopacket + libpcap under `-tags rawsock`. §10 #15/#16.
 - [ ] **SYN scan (Windows)** — §10 #15. Needs Npcap plus the same pipeline under `rawsock && windows`. `syn_other.go` now carries a detailed contract note naming `scanState` as the reference implementation and listing the Windows-specific pieces (NPF device names via `pcap.FindAllDevs`, ARP via `GetIpNetTable2`/`SendARP`, Npcap WinPcap-compat mode in install docs). Not shipped because there's no Windows host in this workflow for end-to-end verification.
-- [x] **SYN scan (IPv6)** — Shipped 2026-04-23 (scaffolded). `internal/portscan/syn_v6_linux.go` builds an Ethernet + IPv6 + TCP frame using the all-nodes multicast MAC (33:33::1) as a placeholder until ND resolution is wired. BPF filter widened to `tcp or ip6 proto 6`; `parseAndDispatch` handles both families. End-to-end v6 verification still requires an IPv6-reachable environment (not WSL2).
+- [ ] **SYN scan (IPv6)** — Moved to `feat/ipv6-support` branch on 2026-04-23 (§10 #22). Was scaffolded on `main` (syn_v6_linux.go with Ethernet+IPv6+TCP frame and multicast MAC placeholder); lives on the preservation branch now.
 - [x] **ARP / gateway MAC lookup for SYN** — Shipped 2026-04-23. `internal/portscan/syn_arp_linux.go` reads `/proc/net/arp` for on-link targets and `/proc/net/route` for default-gateway lookup. Falls back to broadcast with a one-time stderr warning on failure. Cached per scan-run in `scanState.macByDst`.
 - [x] **Loopback / WSL2 routability for SYN** — Documented 2026-04-23 in README's new "Known pcap limitations" subsection and in the `--syn` flag help text.
 - [x] **Rate limiter for SYN** (§5) — Shipped 2026-04-23. `internal/ratelimit` token-bucket via `golang.org/x/time/rate`; CLI `--rate` defaults to 10000 pps, 0 = unlimited.
@@ -55,8 +55,20 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ## Portability
 
-- [ ] **IPv6 scanning** (§10 #5). Parser accepts v6 from day one, but default TCP-connect behaviour against v6 hasn't been exercised end-to-end. Add an integration test that listens on `[::1]:port` and confirms the scanner reaches it. Verify Windows behaviour too.
 - [x] **macOS build/test in CI**. `macos-latest` added to the build-test matrix; same vet/race/build pipeline as Linux and Windows.
+
+## IPv6 (preservation branch)
+
+All IPv6 support lives on the **`feat/ipv6-support`** branch (tip at the scanning-protocols merge, 2026-04-23). `main` is IPv4-only per §10 #22. When bringing v6 back, rebase that branch onto current main and tackle these items together — they were designed as a bundle:
+
+- [ ] **Parser acceptance**: restore v6 literals, v6 CIDR, v6 ranges in `internal/target/parse.go` (revert `requireIPv4`).
+- [ ] **Parser helpers**: restore the v6 branches in `internal/target/addr.go` (`lastInPrefix`, `addrDiff` using `math/big`).
+- [ ] **SYN frame construction**: re-add `internal/portscan/syn_v6_linux.go` and the v4/v6 dispatch in `sendSYN`; extend BPF to `tcp or ip6 proto 6`; dual-family parse in `parseAndDispatch`.
+- [ ] **Interface selection**: restore v6 fallback in `pickInterface`.
+- [ ] **Neighbour Discovery**: v6 equivalent of `resolveDstMAC` (ND, not ARP). Today's placeholder uses the all-nodes multicast MAC — good enough for some LAN tests, wrong in most real networks.
+- [ ] **Hostname resolution**: restore v6 address acceptance in `parseToken`.
+- [ ] **`--exclude`**: restore v6 acceptance in `parseExclude`.
+- [ ] **End-to-end verification**: this is the part that kept blocking us — need an IPv6-reachable test host (not WSL2) to sanity-check the full pipeline. The opt-in `SCRY_RUN_SYN_TESTS=1` test should grow a v6 variant.
 
 ## Build System
 
@@ -82,4 +94,4 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ---
 
-_Last updated: 2026-04-23 (scanning-protocols sweep)._
+_Last updated: 2026-04-23 (remove-ipv6 sweep)._

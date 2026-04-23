@@ -52,13 +52,17 @@ func TestParseFormat(t *testing.T) {
 }
 
 func TestServiceLookup(t *testing.T) {
+	// IANA-canonical names (generated from
+	// data/iana-service-names-port-numbers.csv). Some common aliases
+	// (rdp, http-proxy) differ from the canonical assignment — users
+	// who want the friendlier names can layer them on themselves.
 	cases := map[uint16]string{
-		22:   "ssh",
-		80:   "http",
-		443:  "https",
-		3389: "rdp",
-		8080: "http-proxy",
-		4242: "", // unknown
+		22:    "ssh",
+		80:    "http",
+		443:   "https",
+		3389:  "ms-wbt-server", // what most people call "rdp"
+		8080:  "http-alt",      // often colloquially "http-proxy"
+		65000: "",              // unassigned
 	}
 	for p, want := range cases {
 		if got := Service(p); got != want {

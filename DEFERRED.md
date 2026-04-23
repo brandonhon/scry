@@ -20,7 +20,8 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ## Port Lists
 
-- [ ] **Replace `top1000` placeholder**. `internal/portscan/top.go` currently uses `top100 ∪ (numeric-order tail)` as a stand-in. Ship an authoritative list derived from `nmap-services`. API stays the same; only `top1000` body changes.
+- [x] **Replace `top1000` placeholder** — Shipped 2026-04-23. `cmd/gen-top-ports` regenerates `internal/portscan/top.go` from the IANA registry snapshot; the 900-entry tail is now IANA-assigned TCP ports in numeric order. §10 #23. nmap-services was evaluated and rejected on license grounds; see `data/README.md`.
+- [ ] **Frequency-sorted top1000** — still a nice-to-have. Today's tail is numeric-order which beats the previous placeholder but is not frequency-ranked past top100. Options: run our own survey against a sample corpus, or license-audit nmap-services again in a future release.
 
 ## Lua Scripting
 
@@ -33,8 +34,8 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ## Output
 
-- [ ] **Live-updating TUI table** (§4.6). Currently per-host blocks stream as they complete; a bubbletea redraw-in-place table is the stretch goal called out in the plan.
-- [ ] **Service-name database**. `internal/output/service.go` is a hand-curated ~80-entry map. Consider embedding a larger `services` file (IANA-derived) keyed by port for richer annotations.
+- [ ] **Live-updating TUI table** (§4.6). Currently per-host blocks stream as they complete; a bubbletea redraw-in-place table is the stretch goal called out in the plan. Deferred to post-v0.1 by explicit user direction during the ports-and-services sweep.
+- [x] **Service-name database** — Shipped 2026-04-23. `cmd/gen-services` regenerates `internal/output/service.go` from IANA (~6000 TCP assignments, ~150 KB binary delta). §10 #23. Names are IANA-canonical (e.g. 3389 → `ms-wbt-server`); a nickname overlay is a follow-up if users ask.
 
 ## Hardening (Phase 7)
 
@@ -94,4 +95,4 @@ All IPv6 support lives on the **`feat/ipv6-support`** branch (tip at the scannin
 
 ---
 
-_Last updated: 2026-04-23 (remove-ipv6 sweep)._
+_Last updated: 2026-04-23 (ports-and-services sweep)._

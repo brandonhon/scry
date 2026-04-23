@@ -258,29 +258,19 @@ func receiveLoop(ctx context.Context, st *scanState) {
 	}
 }
 
-// parseAndDispatch extracts a v4/v6 TCP reply from pkt; if it matches a
+// parseAndDispatch extracts an IPv4+TCP reply from pkt; if it matches a
 // waiter, classifies and notifies.
 func parseAndDispatch(pkt gopacket.Packet, st *scanState) {
+	ipL := pkt.Layer(layers.LayerTypeIPv4)
 	tcpL := pkt.Layer(layers.LayerTypeTCP)
-	if tcpL == nil {
+	if ipL == nil || tcpL == nil {
 		return
 	}
+	ip := ipL.(*layers.IPv4)
 	tcp := tcpL.(*layers.TCP)
 
-	var srcAddr netip.Addr
-	if ipL := pkt.Layer(layers.LayerTypeIPv4); ipL != nil {
-		a, ok := netip.AddrFromSlice(ipL.(*layers.IPv4).SrcIP.To4())
-		if !ok {
-			return
-		}
-		srcAddr = a
-	} else if ipL := pkt.Layer(layers.LayerTypeIPv6); ipL != nil {
-		a, ok := netip.AddrFromSlice(ipL.(*layers.IPv6).SrcIP.To16())
-		if !ok {
-			return
-		}
-		srcAddr = a
-	} else {
+	srcAddr, ok := netip.AddrFromSlice(ip.SrcIP.To4())
+	if !ok {
 		return
 	}
 	key := makeKey(uint16(tcp.DstPort), srcAddr, uint16(tcp.SrcPort))
@@ -320,12 +310,8 @@ func (st *scanState) allocSrcPort() uint16 {
 	return st.basePort + uint16(n&0x3FFF)
 }
 
-// sendSYN crafts and emits a single SYN on the pcap handle. Dispatches
-// to the v4 or v6 frame builder based on the destination family.
+// sendSYN crafts and emits a single SYN on the pcap handle. IPv4 only.
 func (st *scanState) sendSYN(dst netip.Addr, dstPort, srcPort uint16) error {
-	if dst.Is6() && !dst.Is4In6() {
-		return st.sendSYNv6(dst, dstPort, srcPort)
-	}
 	eth := layers.Ethernet{
 		SrcMAC:       st.srcMAC,
 		DstMAC:       st.dstMACFor(dst),
@@ -372,7 +358,7 @@ func setupSYN(ctx context.Context, timeout time.Duration, rps int, adaptive bool
 	if err != nil {
 		return nil, nil, fmt.Errorf("pcap open %s: %w (need CAP_NET_RAW or root)", iface, err)
 	}
-	if err := h.SetBPFFilter("tcp or ip6 proto 6"); err != nil {
+	if err := h.SetBPFFilter("tcp"); err != nil {
 		h.Close()
 		return nil, nil, fmt.Errorf("bpf filter: %w", err)
 	}
@@ -432,19 +418,14 @@ func (st *scanState) dstMACFor(dst netip.Addr) net.HardwareAddr {
 	return mac
 }
 
-// pickInterface returns the first non-loopback up interface that has
-// an IPv4 address (preferred) or an IPv6 global address. Returns the
-// chosen interface name, its bound IP (v4 if available, else v6), and
-// hardware address. Callers that specifically need v6 should pre-check
-// the target family; today v4 is preferred so v4 scans stay cheap.
+// pickInterface returns the first non-loopback up interface with an
+// IPv4 address. IPv6 selection is out of scope; scry is IPv4-only
+// until the feat/ipv6-support branch merges back.
 func pickInterface() (string, net.IP, net.HardwareAddr, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		return "", nil, nil, err
 	}
-	var v6Name string
-	var v6IP net.IP
-	var v6MAC net.HardwareAddr
 	for _, ifc := range ifaces {
 		if ifc.Flags&net.FlagLoopback != 0 || ifc.Flags&net.FlagUp == 0 {
 			continue
@@ -452,23 +433,13 @@ func pickInterface() (string, net.IP, net.HardwareAddr, error) {
 		addrs, _ := ifc.Addrs()
 		for _, a := range addrs {
 			ipn, ok := a.(*net.IPNet)
-			if !ok {
+			if !ok || ipn.IP.To4() == nil {
 				continue
 			}
-			if v4 := ipn.IP.To4(); v4 != nil {
-				return ifc.Name, v4, ifc.HardwareAddr, nil
-			}
-			if v6Name == "" && ipn.IP.IsGlobalUnicast() && ipn.IP.To16() != nil {
-				v6Name = ifc.Name
-				v6IP = ipn.IP
-				v6MAC = ifc.HardwareAddr
-			}
+			return ifc.Name, ipn.IP, ifc.HardwareAddr, nil
 		}
 	}
-	if v6Name != "" {
-		return v6Name, v6IP, v6MAC, nil
-	}
-	return "", nil, nil, errors.New("no non-loopback IPv4 or IPv6 interface found")
+	return "", nil, nil, errors.New("no non-loopback IPv4 interface found")
 }
 
 // Silence unused-import lints when building without the binary package.

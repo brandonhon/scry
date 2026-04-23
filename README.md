@@ -6,7 +6,13 @@ This is the working name. See [`ip-scanner-plan.md`](./ip-scanner-plan.md) for t
 
 ## Status
 
-Phase 3 (output polish). Three output formats — `human` (lipgloss-styled per-host blocks), `json` (NDJSON for pipelines), `grep` (grepable one-liner per host). Colour auto-detects on TTYs and respects `NO_COLOR`; Windows consoles get VT escapes enabled at startup. TCP-connect only; SYN scan lands in Phase 6.
+Phase 4 (discovery, DNS, banners, progress). Adds:
+- `--ping-only` / `--sn` — TCP host discovery without a full port scan.
+- Reverse DNS in parallel with port probing, per-run cache, `--no-dns` opt-out.
+- `--banner` — passive banner grab on open ports.
+- stderr progress bar on TTYs (auto-suppressed for pipes); `--no-progress` opts out.
+
+ICMP echo is deferred to Phase 6 alongside SYN scanning under a build tag so the default binary stays dependency-free. TCP connect is still the only probe type in v1.
 
 ## Build
 
@@ -37,6 +43,8 @@ gscan 10.0.0.1-50 -p 22,80,443 --timeout 500ms
 gscan example.com -p-                    # all 65535 ports
 gscan 10.0.0.0/24 -p top100 -o json      # NDJSON for pipelines
 gscan 10.0.0.0/24 -p top100 -o grep      # grepable one-liner per host
+gscan 10.0.0.0/24 --sn                   # host discovery only
+gscan 10.0.0.1 -p 22 --banner            # passive banner grab on open ports
 ```
 
 ### Output formats

@@ -6,12 +6,16 @@ This is the working name. See [`ip-scanner-plan.md`](./ip-scanner-plan.md) for t
 
 ## Status
 
-Phase 5 (scripting engine). Adds:
-- `--script FILE` (repeatable) — run Lua 5.1 scripts against each open port.
-- `gscan.*` API: `tcp.request`, `tls.request`, `tls.cert`, `dns.lookup/reverse`, `log.*`, `util.hex/unhex`.
-- Ships `scripts/http-title.lua`, `scripts/ssh-banner.lua`, `scripts/tls-cert-info.lua`, `scripts/redis-ping.lua` (each under 20 lines).
+Phase 7 (hardening). Parser fuzz targets, race detector in CI, partial-result flush on SIGINT, `make man` (checked-in `docs/man/gscan.1`), goreleaser config, tag-triggered release workflow.
 
-Earlier phases: target parsing, bounded-concurrency TCP-connect scanning, three output formats (`human`/`json`/`grep`), reverse DNS, banner grab, stderr progress bar, `--ping-only`. ICMP echo and SYN scanning are deferred to Phase 6 behind a build tag.
+Earlier phases in order:
+1. Target parsing (IPv4+IPv6, ranges, CIDR, hostnames, `@file`).
+2. Bounded-concurrency TCP-connect scanner; full `-p` syntax with `top100`/`top1000`/`-p-`.
+3. Three output formats: `human` (lipgloss), `json` (NDJSON), `grep`; colour auto-detection.
+4. Host discovery (`--ping-only`/`--sn`), reverse DNS, banner grab, stderr progress bar.
+5. Lua scripting engine (`--script`) with a curated `gscan.*` API and four bundled scripts.
+
+Phase 6 (SYN scan + ICMP, raw sockets under `-tags rawsock`) is queued in [`DEFERRED.md`](./DEFERRED.md) and is intentionally left for after v0.1.0 so the shipping binary stays CGO- and privilege-free.
 
 ## Build
 

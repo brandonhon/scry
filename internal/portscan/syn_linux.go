@@ -21,9 +21,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
 	"net/netip"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -88,12 +90,17 @@ type scanState struct {
 	waiters  map[probeKey]*probeWaiter
 	srcIP    net.IP
 	srcMAC   net.HardwareAddr
-	dstMAC   net.HardwareAddr // gateway MAC for off-link dsts; same-subnet is rare in practice
+	srcNet   *net.IPNet // subnet of srcIP for on-link detection
 	iface    string
 	handle   *pcap.Handle
 	basePort uint16 // ephemeral base; each probe uses basePort + portIdx++
 	portIdx  uint32
 	limiter  *ratelimit.Limiter
+
+	macMu     sync.Mutex
+	macByDst  map[netip.Addr]net.HardwareAddr
+	bcastWarn sync.Once
+	warnW     io.Writer
 }
 
 type probeKey struct {
@@ -304,7 +311,7 @@ func (st *scanState) allocSrcPort() uint16 {
 func (st *scanState) sendSYN(dst netip.Addr, dstPort, srcPort uint16) error {
 	eth := layers.Ethernet{
 		SrcMAC:       st.srcMAC,
-		DstMAC:       st.dstMAC,
+		DstMAC:       st.dstMACFor(dst),
 		EthernetType: layers.EthernetTypeIPv4,
 	}
 	ip := layers.IPv4{
@@ -357,16 +364,47 @@ func setupSYN(ctx context.Context, timeout time.Duration, rate int) (*scanState,
 		burst = 1000 // cap the burst so long scans don't launch a huge lead
 	}
 	st := &scanState{
-		waiters:  make(map[probeKey]*probeWaiter, 1024),
-		srcIP:    srcIP,
-		srcMAC:   srcMAC,
-		dstMAC:   net.HardwareAddr{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, // broadcast placeholder
-		iface:    iface,
-		handle:   h,
-		basePort: 40000 + uint16(rand.Intn(10000)), //nolint:gosec
-		limiter:  ratelimit.New(rate, burst),
+		waiters:   make(map[probeKey]*probeWaiter, 1024),
+		srcIP:     srcIP,
+		srcMAC:    srcMAC,
+		srcNet:    srcSubnet(iface, srcIP),
+		iface:     iface,
+		handle:    h,
+		basePort:  40000 + uint16(rand.Intn(10000)), //nolint:gosec
+		limiter:   ratelimit.New(rate, burst),
+		macByDst:  make(map[netip.Addr]net.HardwareAddr, 64),
+		warnW:     os.Stderr,
 	}
 	return st, func() { h.Close() }, nil
+}
+
+// dstMACFor returns the correct L2 destination for the given IP,
+// caching the result per scanState. Unresolved targets fall back to
+// broadcast and emit a one-time stderr warning.
+func (st *scanState) dstMACFor(dst netip.Addr) net.HardwareAddr {
+	st.macMu.Lock()
+	if mac, ok := st.macByDst[dst]; ok {
+		st.macMu.Unlock()
+		return mac
+	}
+	st.macMu.Unlock()
+
+	mac, authoritative, err := resolveDstMAC(st.iface, st.srcNet, dst)
+	if !authoritative {
+		st.bcastWarn.Do(func() {
+			reason := "no error"
+			if err != nil {
+				reason = err.Error()
+			}
+			_, _ = fmt.Fprintf(st.warnW,
+				"warning: could not resolve dst MAC (%s); falling back to broadcast. Results may be unreliable — scan may need root or adjacent network.\n",
+				reason)
+		})
+	}
+	st.macMu.Lock()
+	st.macByDst[dst] = mac
+	st.macMu.Unlock()
+	return mac
 }
 
 func pickInterface() (string, net.IP, net.HardwareAddr, error) {

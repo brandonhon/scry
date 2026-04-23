@@ -121,6 +121,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 				rep = progress.New("scanning", false)
 			}
 
+			warnUlimit(stderr, concurrencyFlag)
+
 			cfg := portscan.Config{
 				Ports:        ports,
 				Timeout:      timeoutFlag,

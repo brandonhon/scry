@@ -6,13 +6,12 @@ This is the working name. See [`ip-scanner-plan.md`](./ip-scanner-plan.md) for t
 
 ## Status
 
-Phase 4 (discovery, DNS, banners, progress). Adds:
-- `--ping-only` / `--sn` — TCP host discovery without a full port scan.
-- Reverse DNS in parallel with port probing, per-run cache, `--no-dns` opt-out.
-- `--banner` — passive banner grab on open ports.
-- stderr progress bar on TTYs (auto-suppressed for pipes); `--no-progress` opts out.
+Phase 5 (scripting engine). Adds:
+- `--script FILE` (repeatable) — run Lua 5.1 scripts against each open port.
+- `gscan.*` API: `tcp.request`, `tls.request`, `tls.cert`, `dns.lookup/reverse`, `log.*`, `util.hex/unhex`.
+- Ships `scripts/http-title.lua`, `scripts/ssh-banner.lua`, `scripts/tls-cert-info.lua`, `scripts/redis-ping.lua` (each under 20 lines).
 
-ICMP echo is deferred to Phase 6 alongside SYN scanning under a build tag so the default binary stays dependency-free. TCP connect is still the only probe type in v1.
+Earlier phases: target parsing, bounded-concurrency TCP-connect scanning, three output formats (`human`/`json`/`grep`), reverse DNS, banner grab, stderr progress bar, `--ping-only`. ICMP echo and SYN scanning are deferred to Phase 6 behind a build tag.
 
 ## Build
 
@@ -45,7 +44,14 @@ gscan 10.0.0.0/24 -p top100 -o json      # NDJSON for pipelines
 gscan 10.0.0.0/24 -p top100 -o grep      # grepable one-liner per host
 gscan 10.0.0.0/24 --sn                   # host discovery only
 gscan 10.0.0.1 -p 22 --banner            # passive banner grab on open ports
+gscan 10.0.0.0/24 -p 22,80,443,6379 \
+  --script scripts/http-title.lua \
+  --script scripts/ssh-banner.lua \
+  --script scripts/tls-cert-info.lua \
+  --script scripts/redis-ping.lua
 ```
+
+See [`scripts/README.md`](./scripts/README.md) for the `gscan.*` API surface and script anatomy.
 
 ### Output formats
 

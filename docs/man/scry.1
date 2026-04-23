@@ -78,6 +78,10 @@ scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and 
 	Alias for --ping-only (nmap-style)
 
 .PP
+\fB--syn\fP[=false]
+	Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW)
+
+.PP
 \fB--timeout\fP=1.5s
 	Per-probe dial timeout
 

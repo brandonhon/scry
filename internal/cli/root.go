@@ -168,7 +168,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.BoolVar(&noProgressFlag, "no-progress", false, "Disable the stderr progress bar")
 	f.StringSliceVar(&scriptFiles, "script", nil, "Lua script to run against open ports (repeatable)")
 	f.DurationVar(&scriptTimeout, "script-timeout", 5*time.Second, "Per-invocation timeout for --script")
-	f.BoolVar(&synFlag, "syn", false, "Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW)")
+	f.BoolVar(&synFlag, "syn", false, "Use raw SYN scanner (requires -tags rawsock build + CAP_NET_RAW; cannot scan loopback or WSL2)")
 	f.BoolVar(&listScriptsFlag, "list-scripts", false, "Print metadata for scripts passed via --script and exit")
 
 	return cmd

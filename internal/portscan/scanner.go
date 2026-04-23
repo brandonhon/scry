@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bhoneycutt/gscan/internal/progress"
 	"github.com/bhoneycutt/gscan/internal/target"
 	"github.com/bhoneycutt/gscan/internal/workerpool"
 )
@@ -17,6 +18,10 @@ type Config struct {
 	Retries     int           // retries on filtered (default 0)
 	Concurrency int           // max sockets in flight (default 1000)
 	HostParall  int           // max hosts in flight (default 50)
+
+	// Progress receives one Tick per host completed. SetTotal is called
+	// once up front using target.Iterator.Total(). nil → progress.NewNoop.
+	Progress progress.Reporter
 }
 
 // HostResult aggregates all port results for a single host.
@@ -59,6 +64,13 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 		Hosts:   cfg.HostParall,
 		Sockets: cfg.Concurrency,
 	})
+	rep := cfg.Progress
+	if rep == nil {
+		rep = progress.NewNoop()
+	}
+	if total, ok := it.Total(); ok {
+		rep.SetTotal(int64(total))
+	}
 
 	out := make(chan HostResult, cfg.HostParall)
 	var wg sync.WaitGroup
@@ -66,6 +78,7 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 	go func() {
 		defer func() {
 			wg.Wait()
+			rep.Finish()
 			close(out)
 		}()
 
@@ -85,6 +98,7 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 				defer wg.Done()
 				defer pool.ReleaseHost()
 				hr := scanHost(ctx, pool, addr, cfg)
+				rep.Tick()
 				select {
 				case out <- hr:
 				case <-ctx.Done():

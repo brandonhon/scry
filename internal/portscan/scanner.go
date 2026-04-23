@@ -91,8 +91,15 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 	if rep == nil {
 		rep = progress.NewNoop()
 	}
+	// Progress is measured in probes, not hosts, so long single-host scans
+	// (like `-p-` against one hostname) show constant motion. PingOnly
+	// runs one discovery per host, so its unit is hosts.
 	if total, ok := it.Total(); ok {
-		rep.SetTotal(int64(total))
+		unit := int64(1)
+		if !cfg.PingOnly && len(cfg.Ports) > 0 {
+			unit = int64(len(cfg.Ports))
+		}
+		rep.SetTotal(int64(total) * unit)
 	}
 
 	out := make(chan HostResult, cfg.HostParall)
@@ -120,8 +127,7 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 			go func(addr netip.Addr) {
 				defer wg.Done()
 				defer pool.ReleaseHost()
-				hr := processHost(ctx, pool, addr, cfg)
-				rep.Tick()
+				hr := processHost(ctx, pool, addr, cfg, rep)
 				// Always send so partial results survive SIGINT. The
 				// consumer is expected to drain `out` until close; see
 				// runScan in the cli package.
@@ -153,7 +159,7 @@ func applyDefaults(cfg Config) Config {
 // mode it performs TCP discovery; otherwise it probes every port. In
 // either case it launches a reverse-DNS lookup in parallel so the PTR
 // result is ready by the time the scan finishes.
-func processHost(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg Config) HostResult {
+func processHost(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg Config, rep progress.Reporter) HostResult {
 	start := time.Now()
 	hr := HostResult{Addr: addr, Started: start}
 
@@ -174,8 +180,9 @@ func processHost(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cf
 	if cfg.PingOnly {
 		res := discovery.Ping(ctx, addr, discovery.Config{Timeout: cfg.Timeout})
 		hr.Discovery = &res
+		rep.Tick() // one probe per host in ping-only mode
 	} else {
-		hr.Results = scanPorts(ctx, pool, addr, cfg)
+		hr.Results = scanPorts(ctx, pool, addr, cfg, rep)
 	}
 
 	if dnsDone != nil {
@@ -189,7 +196,7 @@ func processHost(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cf
 // scanPorts probes every configured port for a single host. Each probe
 // acquires one socket slot from the pool, so the cross-host socket
 // budget is enforced even when one host has many ports.
-func scanPorts(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg Config) []Result {
+func scanPorts(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg Config, rep progress.Reporter) []Result {
 	results := make([]Result, 0, len(cfg.Ports))
 
 	var mu sync.Mutex
@@ -206,6 +213,7 @@ func scanPorts(ctx context.Context, pool *workerpool.Pool, addr netip.Addr, cfg 
 		go func(port uint16) {
 			defer portWg.Done()
 			defer pool.ReleaseSocket()
+			defer rep.Tick()
 			res := probeWithRetry(ctx, addr, port, cfg)
 			if res.State == StateOpen {
 				if cfg.Banner {

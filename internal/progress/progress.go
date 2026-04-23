@@ -86,7 +86,7 @@ func newBarInstance(w io.Writer, total int64, desc string) *progressbar.Progress
 		progressbar.OptionSetDescription(desc),
 		progressbar.OptionShowCount(),
 		progressbar.OptionShowIts(),
-		progressbar.OptionSetItsString("host"),
+		progressbar.OptionSetItsString("probe"),
 		progressbar.OptionSetWidth(30),
 		progressbar.OptionThrottle(100 * time.Millisecond),
 		progressbar.OptionClearOnFinish(),

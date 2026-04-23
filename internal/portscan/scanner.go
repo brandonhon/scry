@@ -122,10 +122,10 @@ func Scan(ctx context.Context, it *target.Iterator, cfg Config) <-chan HostResul
 				defer pool.ReleaseHost()
 				hr := processHost(ctx, pool, addr, cfg)
 				rep.Tick()
-				select {
-				case out <- hr:
-				case <-ctx.Done():
-				}
+				// Always send so partial results survive SIGINT. The
+				// consumer is expected to drain `out` until close; see
+				// runScan in the cli package.
+				out <- hr
 			}(addr)
 		}
 	}()

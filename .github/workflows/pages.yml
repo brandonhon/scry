@@ -24,6 +24,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/configure-pages@v5
+        with:
+          # Auto-enable Pages on first run when the workflow has
+          # pages:write. Spares the repo owner one UI toggle and
+          # avoids the "Not Found" error that fires before the site
+          # exists.
+          enablement: true
 
       - uses: actions/jekyll-build-pages@v1
         with:

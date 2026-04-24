@@ -94,13 +94,32 @@ func Ping(ctx context.Context, addr netip.Addr, cfg Config) Result {
 				}
 				return
 			}
-			// ECONNREFUSED (RST) also means the host is reachable — the
-			// stack responded, just nothing listens there.
+			// Flip the classification: reject only the error shapes
+			// that clearly mean "can't get there" — timeouts and
+			// routing failures. Any other dial error means the peer
+			// stack responded (RST, host-reset, Windows WSA* refused
+			// variants), so the host is up.
+			//
+			// Windows (discovered via CI): closed loopback ports do
+			// NOT always surface as syscall.ECONNREFUSED — the wrapped
+			// error can be a WSA-specific code that errors.Is against
+			// ECONNREFUSED won't catch. Enumerating the "down"
+			// signatures is cross-platform-stable; enumerating the
+			// "up" signatures is not.
+			var nerr net.Error
+			if errors.As(err, &nerr) && nerr.Timeout() {
+				return
+			}
+			if errors.Is(err, syscall.ENETUNREACH) || errors.Is(err, syscall.EHOSTUNREACH) {
+				return
+			}
+			via := "tcp:" + strconv.Itoa(int(port))
 			if errors.Is(err, syscall.ECONNREFUSED) {
-				select {
-				case results <- outcome{up: true, rtt: rtt, via: "tcp:" + strconv.Itoa(int(port)) + "/refused"}:
-				default:
-				}
+				via += "/refused"
+			}
+			select {
+			case results <- outcome{up: true, rtt: rtt, via: via}:
+			default:
 			}
 		}(p)
 	}

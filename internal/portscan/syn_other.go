@@ -1,4 +1,4 @@
-//go:build rawsock && !linux
+//go:build rawsock && !linux && !windows
 
 // SYN scanning stub for non-Linux rawsock builds.
 //

@@ -34,6 +34,22 @@ state between calls.
 All network calls respect a per-script timeout (`--script-timeout`, default 5s).
 Option tables commonly accept `timeout` (milliseconds) and `max_bytes` (int).
 
+## NSE compatibility shim
+
+scry also exposes a minimal `nmap.*` / `stdnse.*` surface so simple NSE
+scripts can run with minimal edits. The Tier-1 surface:
+
+| Nmap API | scry equivalent |
+|---|---|
+| `nmap.new_socket()` | returns a socket with `connect / send / receive_bytes / close / set_timeout` — backed by the same net.Conn path as `scry.tcp.connect`. |
+| `stdnse.get_script_args(k)` | returns `nil` (scry has no `--script-args` yet). |
+| `stdnse.print_debug` / `debug` | route to `scry.log.info` with `source=script.nse`. |
+
+Anything else — `shortport.*`, `creds.*`, `brute.*`, protocol libs
+(`http`, `vulns`, `smb`) — is **not** provided. Scripts that hard-depend
+on them will fail cleanly with a Lua error. See `scry-plan.md` §10 #28
+for the rationale.
+
 ## Shipped scripts
 
 - `http-title.lua` — extracts `<title>` from web servers on 80/8080/8000/8888.

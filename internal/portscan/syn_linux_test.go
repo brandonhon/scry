@@ -81,5 +81,72 @@ func TestSynScan_LoopbackListenerReportsOpen(t *testing.T) {
 	}
 }
 
+// TestSynScan_RealTarget runs the SYN scanner against an
+// operator-supplied host and port. Opt-in via:
+//
+//	SCRY_RUN_SYN_TESTS=1
+//	SCRY_SYN_TARGET=host:port   # real, reachable, non-WSL
+//
+// The test passes when the target port is classified open OR closed —
+// both prove the pcap path sent and matched a response. A filtered
+// outcome usually means ARP/routing broke; the test logs a hint.
+func TestSynScan_RealTarget(t *testing.T) {
+	if os.Getenv("SCRY_RUN_SYN_TESTS") == "" {
+		t.Skip("set SCRY_RUN_SYN_TESTS=1 to opt in")
+	}
+	target := os.Getenv("SCRY_SYN_TARGET")
+	if target == "" {
+		t.Skip("set SCRY_SYN_TARGET=host:port to exercise the real-network path")
+	}
+	requirePcap(t)
+
+	host, pStr, err := net.SplitHostPort(target)
+	if err != nil {
+		t.Fatalf("SCRY_SYN_TARGET=%q is not host:port: %v", target, err)
+	}
+	port, err := strconv.Atoi(pStr)
+	if err != nil || port <= 0 || port > 65535 {
+		t.Fatalf("SCRY_SYN_TARGET port %q: %v", pStr, err)
+	}
+
+	it, err := targetParse(host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	out, err := SynScan(ctx, it, Config{
+		Ports:      []uint16{uint16(port)},
+		Timeout:    3 * time.Second,
+		HostParall: 1,
+		Retries:    1,
+	})
+	if err != nil {
+		t.Fatalf("SynScan setup: %v", err)
+	}
+
+	var seenAnswer bool
+	for hr := range out {
+		for _, r := range hr.Results {
+			t.Logf("%s:%d → %s (rtt=%s)", r.Addr, r.Port, r.State, r.RTT)
+			switch r.State {
+			case StateOpen, StateClosed:
+				seenAnswer = true
+			case StateFiltered:
+				t.Logf("filtered — if consistent, check CAP_NET_RAW, firewall, and ARP/gateway reachability to %s", host)
+			}
+		}
+	}
+	if !seenAnswer {
+		t.Fatalf("no open/closed classification from %s — pcap path may be broken", target)
+	}
+}
+
+// targetParse wraps target.Parse for the single-host shape used above.
+func targetParse(host string) (*target.Iterator, error) {
+	return target.Parse([]string{host}, target.Options{})
+}
+
 var _ = errors.New
 var _ = netip.Addr{}

@@ -2,10 +2,11 @@ package discovery
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/netip"
 	"strconv"
-	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -39,21 +40,47 @@ func TestPing_Up_Listening(t *testing.T) {
 	}
 }
 
-func TestPing_Up_Refused(t *testing.T) {
-	ln, _ := net.Listen("tcp", "127.0.0.1:0")
-	_, pStr, _ := net.SplitHostPort(ln.Addr().String())
-	p, _ := strconv.Atoi(pStr)
-	ln.Close() // ensures the port is closed → RST / ECONNREFUSED
-
-	r := Ping(context.Background(), netip.MustParseAddr("127.0.0.1"),
-		Config{Ports: []uint16{uint16(p)}, Timeout: 500 * time.Millisecond})
-	if !r.Up {
-		t.Fatalf("refused port should count as up; got %+v", r)
+// TestClassifyDialErr locks in the refused/unreachable/timeout
+// classification without depending on real kernel TCP semantics.
+// The previous TestPing_Up_Refused relied on net.Listen("tcp",
+// "127.0.0.1:0") + Close producing ECONNREFUSED on dial, which is
+// timing-dependent on GitHub Actions runners (TIME_WAIT, port
+// reuse, kernel config) and was flaky across linux/windows CI.
+func TestClassifyDialErr(t *testing.T) {
+	cases := []struct {
+		name    string
+		err     error
+		wantUp  bool
+		wantVia string
+	}{
+		{"nil", nil, false, ""},
+		{"timeout", &net.OpError{Op: "dial", Err: &timeoutErr{}}, false, ""},
+		{"network unreachable", &net.OpError{Op: "dial", Err: syscall.ENETUNREACH}, false, ""},
+		{"host unreachable", &net.OpError{Op: "dial", Err: syscall.EHOSTUNREACH}, false, ""},
+		{"refused", &net.OpError{Op: "dial", Err: syscall.ECONNREFUSED}, true, "tcp:22/refused"},
+		{"connection reset", &net.OpError{Op: "dial", Err: syscall.ECONNRESET}, true, "tcp:22"},
+		{"unclassified — Windows WSA variant", errors.New("connectex: unknown Windows error"), true, "tcp:22"},
 	}
-	if !strings.Contains(r.Via, "/refused") {
-		t.Errorf("expected refused marker in Via, got %q", r.Via)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			up, via := classifyDialErr(tc.err, 22)
+			if up != tc.wantUp {
+				t.Fatalf("up = %v, want %v", up, tc.wantUp)
+			}
+			if via != tc.wantVia {
+				t.Fatalf("via = %q, want %q", via, tc.wantVia)
+			}
+		})
 	}
 }
+
+// timeoutErr is a minimal net.Error-satisfying timeout stub for the
+// classifier test.
+type timeoutErr struct{}
+
+func (timeoutErr) Error() string   { return "i/o timeout" }
+func (timeoutErr) Timeout() bool   { return true }
+func (timeoutErr) Temporary() bool { return true }
 
 func TestPing_Down_UnreachableNetwork(t *testing.T) {
 	// 10.255.255.1 on this dev box is unreachable (routing error) and

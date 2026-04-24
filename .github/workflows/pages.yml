@@ -18,18 +18,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    # Pages must be enabled in repo settings (Settings → Pages →
+    # Source: GitHub Actions) before build+deploy can succeed. The
+    # GITHUB_TOKEN cannot enable Pages itself — that requires admin.
+    # We probe the API here so an un-configured repo gets a clear
+    # notice instead of an opaque failure.
+    runs-on: ubuntu-latest
+    outputs:
+      pages_enabled: ${{ steps.check.outputs.pages_enabled }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          status=$(gh api -i "repos/$GITHUB_REPOSITORY/pages" \
+            --header "Accept: application/vnd.github+json" \
+            2>/dev/null | head -1 | awk '{print $2}')
+          if [ "$status" = "200" ]; then
+            echo "pages_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pages_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages isn't enabled for this repository yet. Enable it at Settings → Pages → Source: GitHub Actions, then re-run this workflow."
+          fi
+
   build:
+    needs: preflight
+    if: needs.preflight.outputs.pages_enabled == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/configure-pages@v5
-        with:
-          # Auto-enable Pages on first run when the workflow has
-          # pages:write. Spares the repo owner one UI toggle and
-          # avoids the "Not Found" error that fires before the site
-          # exists.
-          enablement: true
 
       - uses: actions/jekyll-build-pages@v1
         with:
@@ -40,6 +60,7 @@ jobs:
 
   deploy:
     needs: build
+    if: needs.preflight.outputs.pages_enabled == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

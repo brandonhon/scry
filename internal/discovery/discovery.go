@@ -94,32 +94,11 @@ func Ping(ctx context.Context, addr netip.Addr, cfg Config) Result {
 				}
 				return
 			}
-			// Flip the classification: reject only the error shapes
-			// that clearly mean "can't get there" — timeouts and
-			// routing failures. Any other dial error means the peer
-			// stack responded (RST, host-reset, Windows WSA* refused
-			// variants), so the host is up.
-			//
-			// Windows (discovered via CI): closed loopback ports do
-			// NOT always surface as syscall.ECONNREFUSED — the wrapped
-			// error can be a WSA-specific code that errors.Is against
-			// ECONNREFUSED won't catch. Enumerating the "down"
-			// signatures is cross-platform-stable; enumerating the
-			// "up" signatures is not.
-			var nerr net.Error
-			if errors.As(err, &nerr) && nerr.Timeout() {
-				return
-			}
-			if errors.Is(err, syscall.ENETUNREACH) || errors.Is(err, syscall.EHOSTUNREACH) {
-				return
-			}
-			via := "tcp:" + strconv.Itoa(int(port))
-			if errors.Is(err, syscall.ECONNREFUSED) {
-				via += "/refused"
-			}
-			select {
-			case results <- outcome{up: true, rtt: rtt, via: via}:
-			default:
+			if up, via := classifyDialErr(err, port); up {
+				select {
+				case results <- outcome{up: true, rtt: rtt, via: via}:
+				default:
+				}
 			}
 		}(p)
 	}
@@ -140,4 +119,39 @@ func Ping(ctx context.Context, addr netip.Addr, cfg Config) Result {
 		// All probes finished without a positive result.
 		return Result{}
 	}
+}
+
+// classifyDialErr decides whether a failed TCP dial counts as
+// "host up" for ping purposes. The semantics:
+//
+//   - nil err            — Ping handles the connect-success path itself
+//   - timeout            — we don't know (filtered/unknown)   → not up
+//   - ENETUNREACH        — no route to host                   → not up
+//   - EHOSTUNREACH       — no ARP / host unreachable          → not up
+//   - anything else      — peer stack responded (RST, reset,
+//                          Windows WSA* refused variants)     → up
+//
+// Enumerating the "peer responded" signatures across Linux/macOS/
+// Windows is a moving target (errors.Is(err, syscall.ECONNREFUSED)
+// doesn't catch every closed-port case on Windows CI, for example).
+// Enumerating the "can't reach" signatures is stable — there's a
+// small fixed set of routing-failure errnos on every POSIX-ish OS.
+//
+// `via` is the display annotation (e.g. "tcp:22/refused").
+func classifyDialErr(err error, port uint16) (up bool, via string) {
+	if err == nil {
+		return false, ""
+	}
+	var nerr net.Error
+	if errors.As(err, &nerr) && nerr.Timeout() {
+		return false, ""
+	}
+	if errors.Is(err, syscall.ENETUNREACH) || errors.Is(err, syscall.EHOSTUNREACH) {
+		return false, ""
+	}
+	via = "tcp:" + strconv.Itoa(int(port))
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		via += "/refused"
+	}
+	return true, via
 }

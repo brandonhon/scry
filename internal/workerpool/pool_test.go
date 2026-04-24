@@ -31,9 +31,9 @@ func TestPool_HostSemaphoreBounds(t *testing.T) {
 	ctx := context.Background()
 
 	var (
-		inflight  int64
-		maxSeen   int64
-		wg        sync.WaitGroup
+		inflight int64
+		maxSeen  int64
+		wg       sync.WaitGroup
 	)
 	for i := 0; i < jobs; i++ {
 		wg.Add(1)

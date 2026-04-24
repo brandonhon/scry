@@ -23,16 +23,16 @@ type humanWriter struct {
 }
 
 type humanStyle struct {
-	header     lipgloss.Style
-	upBadge    lipgloss.Style
-	downBadge  lipgloss.Style
-	open       lipgloss.Style
-	closed     lipgloss.Style
-	filtered   lipgloss.Style
-	errState   lipgloss.Style
-	dim        lipgloss.Style
-	service    lipgloss.Style
-	summary    lipgloss.Style
+	header    lipgloss.Style
+	upBadge   lipgloss.Style
+	downBadge lipgloss.Style
+	open      lipgloss.Style
+	closed    lipgloss.Style
+	filtered  lipgloss.Style
+	errState  lipgloss.Style
+	dim       lipgloss.Style
+	service   lipgloss.Style
+	summary   lipgloss.Style
 }
 
 func newHumanWriter(w io.Writer, opts Options) *humanWriter {

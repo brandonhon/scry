@@ -135,9 +135,6 @@ func NewEngine(scripts []*Script, timeout time.Duration) *Engine {
 	return &Engine{scripts: scripts, timeout: timeout}
 }
 
-// Scripts returns the loaded scripts, in the order they were provided.
-func (e *Engine) Scripts() []*Script { return e.scripts }
-
 // RunAll invokes every script whose Matches(port) reports true, in order,
 // returning the collected findings. Errors returned by a script are
 // logged into the finding slice as "error: ..." so the caller can

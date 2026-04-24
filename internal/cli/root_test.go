@@ -251,4 +251,3 @@ func TestRootCmd_BadTarget(t *testing.T) {
 		t.Fatal("expected error for invalid target")
 	}
 }
-

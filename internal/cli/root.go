@@ -49,11 +49,11 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "scry [TARGETS...]",
-		Short:   "Fast IP/port scanner",
-		Long:    "scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and optional banner grab.",
+		Use:   "scry [TARGETS...]",
+		Short: "Fast IP/port scanner",
+		Long:  "scry is a fast TCP/IP scanner with TCP-connect probes, bounded concurrency, and optional banner grab.",
 		// Targets required unless --list-scripts is set.
-		Args: cobra.ArbitraryArgs,
+		Args:    cobra.ArbitraryArgs,
 		Version: Version,
 		Example: `  scry 127.0.0.1 -p 22
   scry 192.168.1.0/24 -p top100 --up

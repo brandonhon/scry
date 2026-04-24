@@ -55,7 +55,6 @@ func NewFor(w io.Writer, description string) Reporter {
 	return newBar(w, description)
 }
 
-
 // -- no-op implementation -----------------------------------------------------
 
 type noop struct{}

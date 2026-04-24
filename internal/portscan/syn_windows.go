@@ -456,4 +456,3 @@ func srcSubnet(_ string, srcIP net.IP) *net.IPNet {
 	}
 	return nil
 }
-

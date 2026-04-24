@@ -35,14 +35,14 @@ type jsonDiscovery struct {
 }
 
 type jsonResult struct {
-	Port     uint16         `json:"port"`
-	Proto    string         `json:"proto"`
-	State    string         `json:"state"`
-	Service  string         `json:"service,omitempty"`
-	RTT      string         `json:"rtt"`
-	Banner   string         `json:"banner,omitempty"`
-	Err      string         `json:"err,omitempty"`
-	Findings []jsonFinding  `json:"findings,omitempty"`
+	Port     uint16        `json:"port"`
+	Proto    string        `json:"proto"`
+	State    string        `json:"state"`
+	Service  string        `json:"service,omitempty"`
+	RTT      string        `json:"rtt"`
+	Banner   string        `json:"banner,omitempty"`
+	Err      string        `json:"err,omitempty"`
+	Findings []jsonFinding `json:"findings,omitempty"`
 }
 
 type jsonFinding struct {

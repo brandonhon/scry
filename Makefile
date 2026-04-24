@@ -1,6 +1,10 @@
 # Makefile for scry. Run `make help` for a list of targets.
 
 export GO111MODULE := on
+# Pin the Go toolchain so `go get @latest` stops bumping go.mod's go
+# directive to whatever's installed locally. Set GOTOOLCHAIN=local to
+# override (e.g. when debugging with a newer toolchain).
+export GOTOOLCHAIN ?= go1.23.0
 
 BIN       ?= scry
 PKG       := ./cmd/scry

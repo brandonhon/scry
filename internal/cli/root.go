@@ -44,6 +44,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		listScriptsFlag bool
 		rateFlag        int
 		adaptiveFlag    bool
+		configFlag      string
+		liveFlag        bool
 	)
 
 	cmd := &cobra.Command{
@@ -59,6 +61,11 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
   scry 10.0.0.0/24 --sn               # host discovery only (alias for --ping-only)
   scry example.com -p- --timeout 300ms`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Apply config-file values before anything validates flags
+			// so required-field checks see the merged view.
+			if _, err := loadConfig(cmd, configFlag, stderr); err != nil {
+				return err
+			}
 			if listScriptsFlag {
 				return runListScripts(stdout, scriptFiles)
 			}
@@ -140,8 +147,20 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 				Adaptive:     adaptiveFlag,
 			}
 
+			// --live upgrades format only when stdout is a TTY; piped
+			// output always falls back to streaming human so pipelines
+			// don't get buried in cursor-move escapes.
+			if liveFlag {
+				if output.ShouldColor(stdout, false, false) {
+					format = output.FormatLive
+				} else {
+					fmt.Fprintln(stderr, "warning: --live requires a TTY on stdout; falling back to human output")
+				}
+			}
+			colorOn := (format == output.FormatHuman || format == output.FormatLive) &&
+				output.ShouldColor(stdout, false, noColorFlag)
 			writer := output.New(format, stdout, output.Options{
-				Color:   format == output.FormatHuman && output.ShouldColor(stdout, false, noColorFlag),
+				Color:   colorOn,
 				Verbose: verbose,
 			})
 
@@ -176,6 +195,8 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.BoolVar(&listScriptsFlag, "list-scripts", false, "Print metadata for scripts passed via --script and exit")
 	f.IntVar(&rateFlag, "rate", 10000, "Max SYN packets per second (--syn only; 0 = unlimited)")
 	f.BoolVar(&adaptiveFlag, "adaptive", false, "Adapt SYN send rate to probe error-rate (start at --rate/4, scale to --rate)")
+	f.StringVar(&configFlag, "config", "", "Path to config file (default: $XDG_CONFIG_HOME/scry/config.yaml)")
+	f.BoolVar(&liveFlag, "live", false, "Use an in-place updating table when stdout is a TTY (falls back to streaming human output otherwise)")
 
 	return cmd
 }

@@ -17,6 +17,10 @@ const (
 	FormatHuman Format = "human"
 	FormatJSON  Format = "json"
 	FormatGrep  Format = "grep"
+	// FormatLive is selected by --live; the CLI downgrades to
+	// FormatHuman automatically when stdout isn't a TTY so pipelines
+	// stay clean.
+	FormatLive Format = "live"
 )
 
 // ParseFormat maps a user string to a Format.
@@ -28,8 +32,10 @@ func ParseFormat(s string) (Format, error) {
 		return FormatJSON, nil
 	case "grep":
 		return FormatGrep, nil
+	case "live":
+		return FormatLive, nil
 	default:
-		return "", fmt.Errorf("unknown output format %q (want human|json|grep)", s)
+		return "", fmt.Errorf("unknown output format %q (want human|json|grep|live)", s)
 	}
 }
 
@@ -60,6 +66,8 @@ func New(format Format, w io.Writer, opts Options) Writer {
 		return &jsonWriter{w: w, opts: opts}
 	case FormatGrep:
 		return &grepWriter{w: w, opts: opts}
+	case FormatLive:
+		return newLiveHumanWriter(w, opts)
 	default:
 		return newHumanWriter(w, opts)
 	}

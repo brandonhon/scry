@@ -21,9 +21,11 @@ state between calls.
 
 | Function                                         | Purpose                                         |
 |--------------------------------------------------|-------------------------------------------------|
-| `scry.tcp.request(host, port, payload, opts)`   | Connect, write payload, read up to `max_bytes`. |
-| `scry.tls.request(host, port, payload, opts)`   | Same over TLS; `opts.verify` defaults to false. |
-| `scry.tls.cert(host, port, opts)`               | Return leaf cert: subject, issuer, dates, sans. |
+| `scry.tcp.request(host, port, payload, opts)`   | One-shot: connect, write, read up to `max_bytes`. |
+| `scry.tcp.connect(host, port, opts)`            | Stateful conn: `:send(bytes)`, `:read(n)`, `:close()`. |
+| `scry.udp.send(host, port, payload, opts)`      | One datagram + optional reply read (`expect_reply=false` for fire-and-forget). |
+| `scry.tls.request(host, port, payload, opts)`   | Same shape as tcp.request over TLS; `opts.verify` defaults to false. |
+| `scry.tls.cert(host, port, opts)`               | Leaf cert: subject, issuer, dates, dns_names. |
 | `scry.dns.lookup(host)`                         | Forward A/AAAA lookup.                          |
 | `scry.dns.reverse(ip)`                          | PTR lookup.                                     |
 | `scry.log.info / warn / error`                  | Structured log at `source=script`.              |
@@ -38,6 +40,7 @@ Option tables commonly accept `timeout` (milliseconds) and `max_bytes` (int).
 - `ssh-banner.lua` — reports the SSH identification string on 22/2222.
 - `tls-cert-info.lua` — leaf certificate subject/issuer/not-after on 443/8443/9443.
 - `redis-ping.lua` — `PING` → `+PONG` detection on 6379.
+- `smb-version.lua` — SMB1 Negotiate on 139/445; reports dialect index or falls through to SMB2 detection.
 
 Usage:
 

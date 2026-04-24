@@ -44,6 +44,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 		listScriptsFlag bool
 		rateFlag        int
 		adaptiveFlag    bool
+		configFlag      string
 	)
 
 	cmd := &cobra.Command{
@@ -59,6 +60,11 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
   scry 10.0.0.0/24 --sn               # host discovery only (alias for --ping-only)
   scry example.com -p- --timeout 300ms`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Apply config-file values before anything validates flags
+			// so required-field checks see the merged view.
+			if _, err := loadConfig(cmd, configFlag, stderr); err != nil {
+				return err
+			}
 			if listScriptsFlag {
 				return runListScripts(stdout, scriptFiles)
 			}
@@ -176,6 +182,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.BoolVar(&listScriptsFlag, "list-scripts", false, "Print metadata for scripts passed via --script and exit")
 	f.IntVar(&rateFlag, "rate", 10000, "Max SYN packets per second (--syn only; 0 = unlimited)")
 	f.BoolVar(&adaptiveFlag, "adaptive", false, "Adapt SYN send rate to probe error-rate (start at --rate/4, scale to --rate)")
+	f.StringVar(&configFlag, "config", "", "Path to config file (default: $XDG_CONFIG_HOME/scry/config.yaml)")
 
 	return cmd
 }

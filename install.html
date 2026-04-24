@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+
+<!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Install | scry</title>
+<meta name="generator" content="Jekyll v3.10.0" />
+<meta property="og:title" content="Install" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS." />
+<meta property="og:description" content="Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS." />
+<link rel="canonical" href="https://brandonhon.github.io/scry/install.html" />
+<meta property="og:url" content="https://brandonhon.github.io/scry/install.html" />
+<meta property="og:site_name" content="scry" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Install" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","description":"Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.","headline":"Install","url":"https://brandonhon.github.io/scry/install.html"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel="preload" href="https://fonts.googleapis.com/css?family=Open+Sans:400,700&display=swap" as="style" type="text/css" crossorigin>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#157878">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="/scry/assets/css/style.css?v=0e660e58ac320a5b3a45990b70e02035817eef5a">
+    <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
+
+<!-- Setup Google Analytics -->
+
+
+
+<!-- You can set your favicon here -->
+<!-- link rel="shortcut icon" type="image/x-icon" href="/scry/favicon.ico" -->
+
+<!-- end custom head snippets -->
+
+  </head>
+  <body>
+    <a id="skip-to-content" href="#content">Skip to the content.</a>
+
+    <header class="page-header" role="banner">
+      <h1 class="project-name">Install</h1>
+      <h2 class="project-tagline">Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.</h2>
+      
+        <a href="https://github.com/brandonhon/scry" class="btn">View on GitHub</a>
+      
+      
+    </header>
+
+    <main id="content" class="main-content" role="main">
+      <h1 id="install">Install</h1>
+
+<h2 id="prebuilt-binaries">Prebuilt binaries</h2>
+
+<p>Grab the archive for your platform from the <a href="https://github.com/brandonhon/scry/releases">Releases page</a>:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">scry_&lt;version&gt;_linux_amd64.tar.gz</code></li>
+  <li><code class="language-plaintext highlighter-rouge">scry_&lt;version&gt;_linux_arm64.tar.gz</code></li>
+  <li><code class="language-plaintext highlighter-rouge">scry_&lt;version&gt;_darwin_amd64.tar.gz</code></li>
+  <li><code class="language-plaintext highlighter-rouge">scry_&lt;version&gt;_darwin_arm64.tar.gz</code></li>
+  <li><code class="language-plaintext highlighter-rouge">scry_&lt;version&gt;_windows_amd64.zip</code></li>
+</ul>
+
+<p>Each archive contains:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">scry</code> (or <code class="language-plaintext highlighter-rouge">scry.exe</code>) — the binary</li>
+  <li><code class="language-plaintext highlighter-rouge">LICENSE</code></li>
+  <li><code class="language-plaintext highlighter-rouge">README.md</code></li>
+  <li><code class="language-plaintext highlighter-rouge">scripts/*.lua</code> — bundled scripts</li>
+  <li><code class="language-plaintext highlighter-rouge">docs/man/scry.1</code> — man page</li>
+</ul>
+
+<h2 id="build-from-source">Build from source</h2>
+
+<p>Requires Go 1.22+.</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/brandonhon/scry scry
+<span class="nb">cd </span>scry
+make build             <span class="c"># Linux / macOS</span>
+.<span class="se">\s</span>cripts<span class="se">\b</span>uild.ps1    <span class="c"># Windows</span>
+</code></pre></div></div>
+
+<p>Produces <code class="language-plaintext highlighter-rouge">bin/scry</code> (or <code class="language-plaintext highlighter-rouge">bin\scry.exe</code>).</p>
+
+<h2 id="syn-scan-build">SYN scan build</h2>
+
+<p>SYN scanning is gated behind the <code class="language-plaintext highlighter-rouge">rawsock</code> build tag because it pulls in
+libpcap and needs <code class="language-plaintext highlighter-rouge">CAP_NET_RAW</code>. See the <a href="./syn.html">SYN page</a>.</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>apt <span class="nb">install </span>libpcap-dev         <span class="c"># Debian/Ubuntu</span>
+<span class="nb">sudo </span>dnf <span class="nb">install </span>libpcap-devel       <span class="c"># Fedora/RHEL</span>
+go build <span class="nt">-tags</span> rawsock <span class="nt">-o</span> bin/scry ./cmd/scry
+<span class="nb">sudo </span>setcap cap_net_raw,cap_net_admin<span class="o">=</span>eip bin/scry
+</code></pre></div></div>
+
+<h2 id="verify">Verify</h2>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scry <span class="nt">--version</span>
+scry 127.0.0.1 <span class="nt">-p</span> 22
+</code></pre></div></div>
+
+<h2 id="compatibility">Compatibility</h2>
+
+<ul>
+  <li>Linux kernel 4.x+ (tested on 5.x/6.x).</li>
+  <li>macOS 11+.</li>
+  <li>Windows 10+; Windows 11 recommended for full VT / colour support.</li>
+</ul>
+
+<p>IPv6 is currently <strong>out of scope</strong> and parked on the <code class="language-plaintext highlighter-rouge">feat/ipv6-support</code>
+branch; see the <a href="https://github.com/brandonhon/scry/blob/main/scry-plan.md">plan</a> §10 #22.</p>
+
+
+      <footer class="site-footer">
+        
+          <span class="site-footer-owner"><a href="https://github.com/brandonhon/scry">scry</a> is maintained by <a href="https://github.com/brandonhon">brandonhon</a>.</span>
+        
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+      </footer>
+    </main>
+  </body>
+</html>

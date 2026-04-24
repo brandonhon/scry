@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+
+<!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Usage | scry</title>
+<meta name="generator" content="Jekyll v3.10.0" />
+<meta property="og:title" content="Usage" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS." />
+<meta property="og:description" content="Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS." />
+<link rel="canonical" href="https://brandonhon.github.io/scry/usage.html" />
+<meta property="og:url" content="https://brandonhon.github.io/scry/usage.html" />
+<meta property="og:site_name" content="scry" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Usage" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","description":"Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.","headline":"Usage","url":"https://brandonhon.github.io/scry/usage.html"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel="preload" href="https://fonts.googleapis.com/css?family=Open+Sans:400,700&display=swap" as="style" type="text/css" crossorigin>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#157878">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="/scry/assets/css/style.css?v=0e660e58ac320a5b3a45990b70e02035817eef5a">
+    <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
+
+<!-- Setup Google Analytics -->
+
+
+
+<!-- You can set your favicon here -->
+<!-- link rel="shortcut icon" type="image/x-icon" href="/scry/favicon.ico" -->
+
+<!-- end custom head snippets -->
+
+  </head>
+  <body>
+    <a id="skip-to-content" href="#content">Skip to the content.</a>
+
+    <header class="page-header" role="banner">
+      <h1 class="project-name">Usage</h1>
+      <h2 class="project-tagline">Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.</h2>
+      
+        <a href="https://github.com/brandonhon/scry" class="btn">View on GitHub</a>
+      
+      
+    </header>
+
+    <main id="content" class="main-content" role="main">
+      <h1 id="usage">Usage</h1>
+
+<h2 id="target-syntax">Target syntax</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Form</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Single IPv4</td>
+      <td><code class="language-plaintext highlighter-rouge">192.168.1.10</code></td>
+    </tr>
+    <tr>
+      <td>Last-octet range</td>
+      <td><code class="language-plaintext highlighter-rouge">192.168.1.10-50</code></td>
+    </tr>
+    <tr>
+      <td>Arbitrary range</td>
+      <td><code class="language-plaintext highlighter-rouge">192.168.1.10-192.168.2.20</code></td>
+    </tr>
+    <tr>
+      <td>CIDR</td>
+      <td><code class="language-plaintext highlighter-rouge">192.168.1.0/24</code></td>
+    </tr>
+    <tr>
+      <td>Hostname</td>
+      <td><code class="language-plaintext highlighter-rouge">example.com</code></td>
+    </tr>
+    <tr>
+      <td>Target file</td>
+      <td><code class="language-plaintext highlighter-rouge">@hosts.txt</code> (one entry per line, <code class="language-plaintext highlighter-rouge">#</code> for comments)</td>
+    </tr>
+    <tr>
+      <td>Mixed list</td>
+      <td><code class="language-plaintext highlighter-rouge">10.0.0.1,10.0.0.5-7,192.168.1.0/30</code></td>
+    </tr>
+    <tr>
+      <td>Exclusions</td>
+      <td><code class="language-plaintext highlighter-rouge">--exclude 192.168.1.1,192.168.1.255</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>IPv6 is <strong>not</strong> accepted on main; see the <a href="https://github.com/brandonhon/scry/blob/main/scry-plan.md">plan</a> §10 #22.</p>
+
+<h2 id="port-syntax--p">Port syntax (<code class="language-plaintext highlighter-rouge">-p</code>)</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Form</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">22</code></td>
+      <td>Single port</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">22,80,443</code></td>
+      <td>List</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">1-1024</code></td>
+      <td>Range</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">-</code></td>
+      <td>All 65,535</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">top100</code>, <code class="language-plaintext highlighter-rouge">top1000</code></td>
+      <td>Bundled shortlists</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="common-recipes">Common recipes</h2>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Scan a /24 for common services</span>
+scry 192.168.1.0/24 <span class="nt">-p</span> top100 <span class="nt">--up</span>
+
+<span class="c"># Full-port scan of one host, bigger timeout for WAN</span>
+scry example.com <span class="nt">-p-</span> <span class="nt">--timeout</span> 2s <span class="nt">--retries</span> 1
+
+<span class="c"># Banner grab + human output, no DNS lookups</span>
+scry 10.0.0.1-10 <span class="nt">-p</span> 21,22,25,80,443,6379 <span class="nt">--banner</span> <span class="nt">--no-dns</span>
+
+<span class="c"># Host discovery only (no port scan)</span>
+scry 10.0.0.0/24 <span class="nt">--sn</span>
+
+<span class="c"># Pipelines: NDJSON + jq</span>
+scry 10.0.0.0/24 <span class="nt">-p</span> top100 <span class="nt">-o</span> json | jq <span class="s1">'select(.up) | .addr'</span>
+
+<span class="c"># Run bundled scripts</span>
+scry 10.0.0.0/24 <span class="nt">-p</span> 22,80,443,6379,445 <span class="se">\</span>
+  <span class="nt">--script</span> scripts/ssh-banner.lua <span class="se">\</span>
+  <span class="nt">--script</span> scripts/http-title.lua <span class="se">\</span>
+  <span class="nt">--script</span> scripts/tls-cert-info.lua <span class="se">\</span>
+  <span class="nt">--script</span> scripts/redis-ping.lua <span class="se">\</span>
+  <span class="nt">--script</span> scripts/smb-version.lua
+</code></pre></div></div>
+
+<h2 id="speed-vs-accuracy">Speed vs. accuracy</h2>
+
+<p>Defaults are tuned for LAN:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Flag</th>
+      <th>Default</th>
+      <th>When to raise</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--timeout</code></td>
+      <td>500ms</td>
+      <td>WAN, VPN, lossy links</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--retries</code></td>
+      <td>0</td>
+      <td>Same</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--concurrency</code></td>
+      <td>2000</td>
+      <td><em>Lower</em> when hitting <code class="language-plaintext highlighter-rouge">RLIMIT_NOFILE</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">--max-hosts</code></td>
+      <td>100</td>
+      <td>Rarely</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Presets:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Scenario</th>
+      <th>Suggested</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Fast LAN</td>
+      <td>(defaults)</td>
+    </tr>
+    <tr>
+      <td>VPN / coffee-shop WiFi</td>
+      <td><code class="language-plaintext highlighter-rouge">--timeout 1s --retries 1</code></td>
+    </tr>
+    <tr>
+      <td>Public internet</td>
+      <td><code class="language-plaintext highlighter-rouge">--timeout 2s --retries 2</code></td>
+    </tr>
+    <tr>
+      <td>Tight fd budget</td>
+      <td><code class="language-plaintext highlighter-rouge">--concurrency 500 --max-hosts 20</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>On Linux and macOS scry warns to stderr if <code class="language-plaintext highlighter-rouge">--concurrency</code> is close to
+the soft <code class="language-plaintext highlighter-rouge">RLIMIT_NOFILE</code>.</p>
+
+<h2 id="progress">Progress</h2>
+
+<p>scry shows a live progress bar on stderr when stderr is a TTY. The bar
+ticks once per probe completed (not per host), so long single-host scans
+like <code class="language-plaintext highlighter-rouge">scry example.com -p-</code> update smoothly throughout. Pass
+<code class="language-plaintext highlighter-rouge">--no-progress</code> to suppress.</p>
+
+<h2 id="all-flags">All flags</h2>
+
+<p>Run <code class="language-plaintext highlighter-rouge">scry --help</code> for the full list, or check the <a href="https://github.com/brandonhon/scry/blob/main/docs/man/scry.1"><code class="language-plaintext highlighter-rouge">scry.1</code></a> man page.</p>
+
+
+      <footer class="site-footer">
+        
+          <span class="site-footer-owner"><a href="https://github.com/brandonhon/scry">scry</a> is maintained by <a href="https://github.com/brandonhon">brandonhon</a>.</span>
+        
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+      </footer>
+    </main>
+  </body>
+</html>

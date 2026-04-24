@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+
+<!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Output formats | scry</title>
+<meta name="generator" content="Jekyll v3.10.0" />
+<meta property="og:title" content="Output formats" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS." />
+<meta property="og:description" content="Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS." />
+<link rel="canonical" href="https://brandonhon.github.io/scry/output.html" />
+<meta property="og:url" content="https://brandonhon.github.io/scry/output.html" />
+<meta property="og:site_name" content="scry" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Output formats" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","description":"Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.","headline":"Output formats","url":"https://brandonhon.github.io/scry/output.html"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel="preload" href="https://fonts.googleapis.com/css?family=Open+Sans:400,700&display=swap" as="style" type="text/css" crossorigin>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#157878">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="/scry/assets/css/style.css?v=0e660e58ac320a5b3a45990b70e02035817eef5a">
+    <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
+
+<!-- Setup Google Analytics -->
+
+
+
+<!-- You can set your favicon here -->
+<!-- link rel="shortcut icon" type="image/x-icon" href="/scry/favicon.ico" -->
+
+<!-- end custom head snippets -->
+
+  </head>
+  <body>
+    <a id="skip-to-content" href="#content">Skip to the content.</a>
+
+    <header class="page-header" role="banner">
+      <h1 class="project-name">Output formats</h1>
+      <h2 class="project-tagline">Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.</h2>
+      
+        <a href="https://github.com/brandonhon/scry" class="btn">View on GitHub</a>
+      
+      
+    </header>
+
+    <main id="content" class="main-content" role="main">
+      <h1 id="output-formats">Output formats</h1>
+
+<p>Pick with <code class="language-plaintext highlighter-rouge">-o</code> / <code class="language-plaintext highlighter-rouge">--output</code>. Default is <code class="language-plaintext highlighter-rouge">human</code>.</p>
+
+<h2 id="human-default"><code class="language-plaintext highlighter-rouge">human</code> (default)</h2>
+
+<p>Colour-coded per-host block with service annotations. Service names come
+from the IANA registry (~6000 TCP assignments embedded at build time).</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>UP    192.168.1.10  (router.local)  12ms
+     22/tcp  open      ssh                180µs
+     80/tcp  open      http               212µs
+
+scanned 1 host(s), 1 up in 12ms
+</code></pre></div></div>
+
+<p>Colour is auto-detected from <code class="language-plaintext highlighter-rouge">isatty(stdout)</code>; disable with <code class="language-plaintext highlighter-rouge">--no-color</code>
+or the <code class="language-plaintext highlighter-rouge">NO_COLOR</code> env var. On Windows, VT escape processing is enabled
+at startup.</p>
+
+<h2 id="json"><code class="language-plaintext highlighter-rouge">json</code></h2>
+
+<p>One NDJSON record per host. Stable schema (additions only, no renames):</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span><span class="w">
+  </span><span class="nl">"addr"</span><span class="p">:</span><span class="w"> </span><span class="s2">"192.168.1.10"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"hostname"</span><span class="p">:</span><span class="w"> </span><span class="s2">"router.local"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"up"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"started"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-04-24T18:30:00Z"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"elapsed"</span><span class="p">:</span><span class="w"> </span><span class="s2">"12ms"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"results"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="nl">"port"</span><span class="p">:</span><span class="w"> </span><span class="mi">22</span><span class="p">,</span><span class="w"> </span><span class="nl">"proto"</span><span class="p">:</span><span class="w"> </span><span class="s2">"tcp"</span><span class="p">,</span><span class="w"> </span><span class="nl">"state"</span><span class="p">:</span><span class="w"> </span><span class="s2">"open"</span><span class="p">,</span><span class="w"> </span><span class="nl">"service"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ssh"</span><span class="p">,</span><span class="w"> </span><span class="nl">"rtt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"180µs"</span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Fields per port result: <code class="language-plaintext highlighter-rouge">port</code>, <code class="language-plaintext highlighter-rouge">proto</code>, <code class="language-plaintext highlighter-rouge">state</code>, <code class="language-plaintext highlighter-rouge">service</code>, <code class="language-plaintext highlighter-rouge">rtt</code>,
+optional <code class="language-plaintext highlighter-rouge">banner</code>, optional <code class="language-plaintext highlighter-rouge">err</code>, optional <code class="language-plaintext highlighter-rouge">findings[]</code> (script output).</p>
+
+<h2 id="grep"><code class="language-plaintext highlighter-rouge">grep</code></h2>
+
+<p>One host per line, tab-delimited fields, comma-joined port list. Suitable
+for <code class="language-plaintext highlighter-rouge">grep -F 'Status: up'</code>.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Host: 192.168.1.10 (router.local)	Status: up	Ports: 22/open/ssh,80/open/http	Elapsed: 12ms
+</code></pre></div></div>
+
+<p>Script findings appear as <code class="language-plaintext highlighter-rouge">[script=output]</code> suffixes on the port entry.</p>
+
+<h2 id="--live-opt-in"><code class="language-plaintext highlighter-rouge">--live</code> (opt-in)</h2>
+
+<p>In-place updating table for interactive use; falls back to the streaming
+<code class="language-plaintext highlighter-rouge">human</code> writer when stdout isn’t a TTY. See the
+<a href="./usage.html">Live mode section of the Usage page</a>.</p>
+
+
+      <footer class="site-footer">
+        
+          <span class="site-footer-owner"><a href="https://github.com/brandonhon/scry">scry</a> is maintained by <a href="https://github.com/brandonhon">brandonhon</a>.</span>
+        
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+      </footer>
+    </main>
+  </body>
+</html>

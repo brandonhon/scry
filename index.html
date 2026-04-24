@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+
+<!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>scry | Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.</title>
+<meta name="generator" content="Jekyll v3.10.0" />
+<meta property="og:title" content="scry" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS." />
+<meta property="og:description" content="Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS." />
+<link rel="canonical" href="https://brandonhon.github.io/scry/" />
+<meta property="og:url" content="https://brandonhon.github.io/scry/" />
+<meta property="og:site_name" content="scry" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="scry" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","description":"Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.","headline":"scry","name":"scry","url":"https://brandonhon.github.io/scry/"}</script>
+<!-- End Jekyll SEO tag -->
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel="preload" href="https://fonts.googleapis.com/css?family=Open+Sans:400,700&display=swap" as="style" type="text/css" crossorigin>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#157878">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="/scry/assets/css/style.css?v=0e660e58ac320a5b3a45990b70e02035817eef5a">
+    <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
+
+<!-- Setup Google Analytics -->
+
+
+
+<!-- You can set your favicon here -->
+<!-- link rel="shortcut icon" type="image/x-icon" href="/scry/favicon.ico" -->
+
+<!-- end custom head snippets -->
+
+  </head>
+  <body>
+    <a id="skip-to-content" href="#content">Skip to the content.</a>
+
+    <header class="page-header" role="banner">
+      <h1 class="project-name">scry</h1>
+      <h2 class="project-tagline">Fast IP/port scanner — Go, single static binary, Linux + Windows + macOS.</h2>
+      
+        <a href="https://github.com/brandonhon/scry" class="btn">View on GitHub</a>
+      
+      
+    </header>
+
+    <main id="content" class="main-content" role="main">
+      <h1 id="scry">scry</h1>
+
+<p>Fast, MIT-licensed IP/port scanner written in Go. Single static binary for
+Linux, Windows, and macOS. TCP connect by default — no privileges, no CGO,
+no libpcap. Optional SYN mode on Linux for speed on trusted hardware.</p>
+
+<h2 id="what-it-does">What it does</h2>
+
+<ul>
+  <li>Scans IP addresses, ranges, CIDRs, hostnames, and <code class="language-plaintext highlighter-rouge">@file</code> target lists.</li>
+  <li>Three output formats: <code class="language-plaintext highlighter-rouge">human</code> (coloured per-host blocks), <code class="language-plaintext highlighter-rouge">json</code> (NDJSON
+for pipelines), and <code class="language-plaintext highlighter-rouge">grep</code> (one line per host).</li>
+  <li>Runs Lua 5.1 scripts against open ports with a curated <code class="language-plaintext highlighter-rouge">scry.*</code> API —
+TCP stateless or stateful, UDP, TLS + cert introspection, DNS, hex.</li>
+  <li>Bundled scripts: <code class="language-plaintext highlighter-rouge">http-title</code>, <code class="language-plaintext highlighter-rouge">ssh-banner</code>, <code class="language-plaintext highlighter-rouge">tls-cert-info</code>, <code class="language-plaintext highlighter-rouge">redis-ping</code>,
+<code class="language-plaintext highlighter-rouge">smb-version</code>.</li>
+  <li>Reverse DNS in parallel, optional banner grab, live progress on stderr.</li>
+</ul>
+
+<h2 id="pages">Pages</h2>
+
+<ul>
+  <li><a href="./install.html">Install</a></li>
+  <li><a href="./usage.html">Usage &amp; examples</a></li>
+  <li><a href="./output.html">Output formats</a></li>
+  <li><a href="./scripting.html">Scripting</a></li>
+  <li><a href="./syn.html">SYN scanning</a></li>
+  <li><a href="./config.html">Config file</a></li>
+  <li><a href="https://github.com/brandonhon/scry/blob/main/DEFERRED.md">Deferred / roadmap</a></li>
+  <li><a href="https://github.com/brandonhon/scry/blob/main/scry-plan.md">Full plan &amp; decision log</a></li>
+</ul>
+
+<h2 id="quick-start">Quick start</h2>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>scry 192.168.1.0/24 <span class="nt">-p</span> top100 <span class="nt">--up</span>
+scry 10.0.0.1-50 <span class="nt">-p</span> 22,80,443 <span class="nt">--banner</span>
+scry 10.0.0.0/24 <span class="nt">-p</span> top100 <span class="nt">-o</span> json | jq <span class="s1">'.results[] | select(.state=="open")'</span>
+</code></pre></div></div>
+
+<h2 id="license">License</h2>
+
+<p>MIT. See <a href="https://github.com/brandonhon/scry/blob/main/LICENSE"><code class="language-plaintext highlighter-rouge">LICENSE</code></a>.</p>
+
+
+      <footer class="site-footer">
+        
+          <span class="site-footer-owner"><a href="https://github.com/brandonhon/scry">scry</a> is maintained by <a href="https://github.com/brandonhon">brandonhon</a>.</span>
+        
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.</span>
+      </footer>
+    </main>
+  </body>
+</html>

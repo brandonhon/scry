@@ -83,6 +83,15 @@ func (a *Adaptive) ReportProbe(isErr bool) {
 }
 
 // evaluate closes the current window and possibly adjusts the rate.
+//
+// Known quirk: under heavy concurrent load two goroutines may both
+// observe `total >= adaptiveWindow` on adjacent ReportProbe calls and
+// both enter evaluate(). The guard below restores the counters when
+// the second entrant finds total < window, but the race detector
+// allows a very rare double-adjustment (halve twice, or double twice)
+// when the first entrant's SwapInt64 wins between the two AddInt64s.
+// In steady state this adds at most one extra rate adjustment per
+// many windows; not worth the lock-free complexity of a seqlock.
 func (a *Adaptive) evaluate() {
 	a.mu.Lock()
 	defer a.mu.Unlock()

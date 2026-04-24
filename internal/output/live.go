@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,12 +39,16 @@ func newLiveHumanWriter(w io.Writer, opts Options) *liveHumanWriter {
 		opts:  opts,
 		style: buildStyle(opts.Color),
 		hosts: make(map[string]portscan.HostResult, 64),
+		// start is set here so the field is only written once, outside
+		// any lock; Begin() and End() then read it under the mutex.
+		start: time.Now(),
 	}
 }
 
 func (h *liveHumanWriter) Begin() error {
-	h.start = time.Now()
-	// Hide cursor during the scan; restore on End.
+	// Hide cursor during the scan; restore on End. start is set at
+	// construction — Begin intentionally does not touch it so the
+	// field has a single writer.
 	if h.opts.Color {
 		_, _ = fmt.Fprint(h.w, "\x1b[?25l")
 	}
@@ -165,20 +170,9 @@ func portsCellString(rs []portscan.Result) string {
 		}
 	}
 	if len(entries) <= maxInline {
-		return joinWith(entries, " ")
+		return strings.Join(entries, " ")
 	}
-	return joinWith(entries[:maxInline], " ") + fmt.Sprintf(" +%d more", len(entries)-maxInline)
-}
-
-func joinWith(s []string, sep string) string {
-	if len(s) == 0 {
-		return ""
-	}
-	out := s[0]
-	for i := 1; i < len(s); i++ {
-		out += sep + s[i]
-	}
-	return out
+	return strings.Join(entries[:maxInline], " ") + fmt.Sprintf(" +%d more", len(entries)-maxInline)
 }
 
 func truncate(s string, n int) string {

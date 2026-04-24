@@ -18,7 +18,6 @@ package portscan
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -138,10 +137,20 @@ type probeOutcome struct {
 }
 
 func runSYN(ctx context.Context, state *scanState, it *target.Iterator, cfg Config, out chan<- HostResult, rep progress.Reporter) {
-	// Receiver goroutine reads responses and wakes waiters.
+	// Receiver goroutine reads responses and wakes waiters. The
+	// WaitGroup + deferred Wait ensures receiveLoop has observed ctx
+	// cancellation and returned before runSYN returns; otherwise the
+	// caller's cleanup would race h.Close() against an in-flight pcap
+	// read.
 	recvCtx, recvCancel := context.WithCancel(ctx)
 	defer recvCancel()
-	go receiveLoop(recvCtx, state)
+	var recvWG sync.WaitGroup
+	recvWG.Add(1)
+	go func() {
+		defer recvWG.Done()
+		receiveLoop(recvCtx, state)
+	}()
+	defer recvWG.Wait()
 
 	// Iterator-driven host worker pool. Each host goroutine sends one
 	// SYN per configured port, registers the waiter, waits for either
@@ -442,5 +451,3 @@ func pickInterface() (string, net.IP, net.HardwareAddr, error) {
 	return "", nil, nil, errors.New("no non-loopback IPv4 interface found")
 }
 
-// Silence unused-import lints when building without the binary package.
-var _ = binary.BigEndian

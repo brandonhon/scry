@@ -29,7 +29,10 @@ func buildTCPTable(L *lua.LState) *lua.LTable {
 }
 
 // registerTCPConnMeta installs conn:send / conn:read / conn:close on
-// the tcpConnMeta metatable. Called once per LState.
+// the tcpConnMeta metatable. Called once per LState. A __gc metamethod
+// closes the underlying net.Conn if a script forgets to call close(),
+// so a long scan with many concurrent scripts can't exhaust file
+// descriptors between Lua GC cycles.
 func registerTCPConnMeta(L *lua.LState) {
 	mt := L.NewTypeMetatable(tcpConnMeta)
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
@@ -37,6 +40,21 @@ func registerTCPConnMeta(L *lua.LState) {
 		"read":  tcpConnRead,
 		"close": tcpConnClose,
 	}))
+	L.SetField(mt, "__gc", L.NewFunction(tcpConnGC))
+}
+
+// tcpConnGC closes the socket if the userdata is collected while its
+// conn is still open. Idempotent: tcpConnClose sets conn to nil after
+// closing, so explicit close followed by GC is a no-op.
+func tcpConnGC(L *lua.LState) int {
+	ud := L.CheckUserData(1)
+	c, ok := ud.Value.(*tcpConn)
+	if !ok || c == nil || c.conn == nil {
+		return 0
+	}
+	_ = c.conn.Close()
+	c.conn = nil
+	return 0
 }
 
 // tcpConn wraps a net.Conn so Lua scripts can drive multi-step
@@ -98,7 +116,7 @@ func tcpConnRead(L *lua.LState) int {
 	_ = c.conn.SetDeadline(time.Now().Add(c.timeout))
 	buf := make([]byte, maxBytes)
 	n, err := c.conn.Read(buf)
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		var nerr net.Error
 		if errors.As(err, &nerr) && nerr.Timeout() && n == 0 {
 			L.Push(lua.LString(""))
@@ -116,10 +134,16 @@ func tcpConnRead(L *lua.LState) int {
 	return 2
 }
 
-// tcpConnClose: conn:close()
+// tcpConnClose: conn:close(). Sets c.conn to nil so the __gc
+// finaliser is a no-op if the script both closes and then drops the
+// handle.
 func tcpConnClose(L *lua.LState) int {
 	c := checkTCPConn(L, 1)
+	if c.conn == nil {
+		return 0
+	}
 	_ = c.conn.Close()
+	c.conn = nil
 	return 0
 }
 
@@ -168,7 +192,7 @@ func doTCPRequest(ctx context.Context, host string, port int, payload []byte, ti
 	if err != nil {
 		return "", err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	deadline := time.Now().Add(timeout)
 	_ = conn.SetDeadline(deadline)

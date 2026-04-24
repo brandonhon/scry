@@ -18,6 +18,7 @@ func registerAPI(L *lua.LState) {
 	L.SetField(root, "util", buildUtilTable(L))
 
 	L.SetGlobal("scry", root)
+	registerNSEShim(L)
 }
 
 // optTable is a small helper: pulls a numeric value out of a table

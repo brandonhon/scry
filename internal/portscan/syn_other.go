@@ -22,7 +22,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bhoneycutt/scry/internal/target"
+	"github.com/brandonhon/scry/internal/target"
 )
 
 const SYNAvailable = false

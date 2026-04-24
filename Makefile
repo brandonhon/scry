@@ -10,7 +10,7 @@ BIN       ?= scry
 PKG       := ./cmd/scry
 OUT_DIR   ?= bin
 VERSION   ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS   := -s -w -X github.com/bhoneycutt/scry/internal/cli.Version=$(VERSION)
+LDFLAGS   := -s -w -X github.com/brandonhon/scry/internal/cli.Version=$(VERSION)
 GOFLAGS   ?=
 
 .DEFAULT_GOAL := build
@@ -35,6 +35,10 @@ test: ## Run unit tests
 .PHONY: test-race
 test-race: ## Run unit tests with the race detector
 	go test -race ./...
+
+.PHONY: test-race-rawsock
+test-race-rawsock: ## Run -tags rawsock tests with the race detector (needs libpcap-dev)
+	go test -tags rawsock -race ./...
 
 .PHONY: cover
 cover: ## Run tests and write a coverage profile to coverage.out

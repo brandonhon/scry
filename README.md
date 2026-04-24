@@ -1,8 +1,16 @@
 # scry
 
-Fast IP/port scanner. CLI-first, single static binary, Linux + Windows.
+[![CI](https://github.com/brandonhon/scry/actions/workflows/ci.yml/badge.svg)](https://github.com/brandonhon/scry/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/brandonhon/scry?display_name=tag&sort=semver)](https://github.com/brandonhon/scry/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/brandonhon/scry.svg)](https://pkg.go.dev/github.com/brandonhon/scry)
+[![Go Report Card](https://goreportcard.com/badge/github.com/brandonhon/scry)](https://goreportcard.com/report/github.com/brandonhon/scry)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-This is the working name. See [`scry-plan.md`](./scry-plan.md) for the full project plan.
+Fast, MIT-licensed IP/port scanner. Single static binary for Linux, macOS, and Windows — no CGO, no libpcap, no privileges in the default build. Optional SYN mode on Linux via `-tags rawsock`.
+
+- Docs site: <https://brandonhon.github.io/scry/>
+- Plan & decision log: [`scry-plan.md`](./scry-plan.md)
+- Open work queue: [`DEFERRED.md`](./DEFERRED.md)
 
 ## Status
 

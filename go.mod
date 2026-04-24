@@ -1,4 +1,4 @@
-module github.com/bhoneycutt/scry
+module github.com/brandonhon/scry
 
 go 1.23.0
 

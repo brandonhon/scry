@@ -33,9 +33,9 @@ import (
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 
-	"github.com/bhoneycutt/scry/internal/progress"
-	"github.com/bhoneycutt/scry/internal/ratelimit"
-	"github.com/bhoneycutt/scry/internal/target"
+	"github.com/brandonhon/scry/internal/progress"
+	"github.com/brandonhon/scry/internal/ratelimit"
+	"github.com/brandonhon/scry/internal/target"
 )
 
 // SYNAvailable is true in rawsock builds.

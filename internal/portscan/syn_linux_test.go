@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bhoneycutt/scry/internal/target"
+	"github.com/brandonhon/scry/internal/target"
 	"github.com/google/gopacket/pcap"
 )
 

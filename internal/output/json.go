@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/bhoneycutt/scry/internal/portscan"
+	"github.com/brandonhon/scry/internal/portscan"
 )
 
 // jsonWriter emits one host per line (NDJSON). Designed for pipelines:

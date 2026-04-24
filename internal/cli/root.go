@@ -154,7 +154,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 				if output.ShouldColor(stdout, false, false) {
 					format = output.FormatLive
 				} else {
-					fmt.Fprintln(stderr, "warning: --live requires a TTY on stdout; falling back to human output")
+					_, _ = fmt.Fprintln(stderr, "warning: --live requires a TTY on stdout; falling back to human output")
 				}
 			}
 			colorOn := (format == output.FormatHuman || format == output.FormatLive) &&
@@ -182,7 +182,7 @@ func NewRootCmd(stdout, stderr io.Writer) *cobra.Command {
 	f.BoolVar(&upFlag, "up", false, "Only show hosts with at least one open port")
 	f.BoolVar(&downFlag, "down", false, "Only show hosts with no open ports")
 	f.CountVarP(&verbose, "verbose", "v", "Verbose output (-v shows closed/filtered, -vv shows errors too)")
-	f.StringVarP(&outputFlag, "output", "o", "human", "Output format: human | json | grep")
+	f.StringVarP(&outputFlag, "output", "o", "human", "Output format: human | json | grep | live (live also via --live)")
 	f.BoolVar(&noColorFlag, "no-color", false, "Disable ANSI colour in human output")
 	f.BoolVar(&pingOnlyFlag, "ping-only", false, "Host discovery only, no port scan")
 	f.BoolVar(&pingOnlyFlag, "sn", false, "Alias for --ping-only (nmap-style)")

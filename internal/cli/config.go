@@ -12,8 +12,20 @@ import (
 )
 
 // configFlags lists flag names that should be bound to viper keys. Only
-// the behaviour-shaping flags are bound; positional targets, version,
-// help, and list-scripts are not.
+// the behaviour-shaping flags are bound.
+//
+// Deliberate omissions:
+//   - positional targets (not flags)
+//   - "version", "help", "list-scripts" (control/meta flags)
+//   - "sn" (alias for --ping-only; would double-write the same bool)
+//   - "verbose" (short count flag -v/-vv; YAML users set the
+//     underlying number via a new `verbose: 2` key — but pflag's
+//     CountVar doesn't round-trip cleanly through viper.Set, so this
+//     is currently a documented gap)
+//   - "config" (would be circular)
+//
+// When adding a new flag in root.go that should be config-loadable,
+// append it to this list.
 var configFlags = []string{
 	"ports", "timeout", "exclude", "concurrency", "max-hosts", "retries",
 	"up", "down", "output", "no-color", "ping-only", "no-dns", "banner",
@@ -30,6 +42,7 @@ func loadConfig(cmd *cobra.Command, cfgPath string, stderr io.Writer) (string, e
 	v.SetEnvPrefix("SCRY")
 	v.AutomaticEnv()
 
+	explicit := true
 	if cfgPath != "" {
 		v.SetConfigFile(cfgPath)
 	} else if envPath := os.Getenv("SCRY_CONFIG"); envPath != "" {
@@ -39,15 +52,18 @@ func loadConfig(cmd *cobra.Command, cfgPath string, stderr io.Writer) (string, e
 		if err != nil {
 			return "", nil // no default available; silently skip
 		}
-		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-			return "", nil // nothing to load
-		}
 		v.SetConfigFile(path)
+		explicit = false
 	}
 
 	if err := v.ReadInConfig(); err != nil {
-		// Explicit --config / SCRY_CONFIG must succeed; implicit default
-		// that goes missing mid-read is an error too (we stat'd it).
+		// Implicit default: a missing file is expected; silently skip.
+		// Explicit --config / SCRY_CONFIG: any read error is fatal.
+		// This replaces an earlier Stat+Read pair that had a TOCTOU
+		// window between the two syscalls.
+		if !explicit && errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
 		return "", fmt.Errorf("config %s: %w", v.ConfigFileUsed(), err)
 	}
 
@@ -64,7 +80,7 @@ func loadConfig(cmd *cobra.Command, cfgPath string, stderr io.Writer) (string, e
 		// value. Converting via fmt is tolerant of int/bool/string/slice.
 		raw := v.Get(key)
 		if err := setFlagFromConfig(cmd, name, raw); err != nil {
-			fmt.Fprintf(stderr, "warning: config %s=%v: %v\n", name, raw, err)
+			_, _ = fmt.Fprintf(stderr, "warning: config %s=%v: %v\n", name, raw, err)
 		}
 	}
 	return v.ConfigFileUsed(), nil

@@ -66,6 +66,21 @@ func registerNSESocketMeta(L *lua.LState) {
 		"close":         nseSockClose,
 		"set_timeout":   nseSockSetTimeout,
 	}))
+	// __gc closes the underlying net.Conn if the NSE script drops the
+	// socket without calling close(). Idempotent via nseSockClose's
+	// nil-check.
+	L.SetField(mt, "__gc", L.NewFunction(nseSockGC))
+}
+
+func nseSockGC(L *lua.LState) int {
+	ud := L.CheckUserData(1)
+	s, ok := ud.Value.(*nseSocket)
+	if !ok || s == nil || s.conn == nil {
+		return 0
+	}
+	_ = s.conn.Close()
+	s.conn = nil
+	return 0
 }
 
 func nmapNewSocket(L *lua.LState) int {

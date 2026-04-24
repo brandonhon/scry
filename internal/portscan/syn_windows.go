@@ -23,7 +23,6 @@ package portscan
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -135,9 +134,17 @@ type probeOutcome struct {
 }
 
 func runSYN(ctx context.Context, state *scanState, it *target.Iterator, cfg Config, out chan<- HostResult, rep progress.Reporter) {
+	// See the Linux counterpart for the WaitGroup rationale — protects
+	// against a cleanup-vs-in-flight-pcap-read race.
 	recvCtx, recvCancel := context.WithCancel(ctx)
 	defer recvCancel()
-	go receiveLoop(recvCtx, state)
+	var recvWG sync.WaitGroup
+	recvWG.Add(1)
+	go func() {
+		defer recvWG.Done()
+		receiveLoop(recvCtx, state)
+	}()
+	defer recvWG.Wait()
 
 	var wg sync.WaitGroup
 	hostSem := make(chan struct{}, cfg.HostParall)
@@ -450,6 +457,3 @@ func srcSubnet(_ string, srcIP net.IP) *net.IPNet {
 	return nil
 }
 
-// Silence unused-import lints.
-var _ = binary.BigEndian
-var _ = strings.Contains

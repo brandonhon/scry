@@ -33,7 +33,7 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ## Output
 
-- [ ] **Live-updating TUI table** (§4.6). Currently per-host blocks stream as they complete; a bubbletea redraw-in-place table is the stretch goal called out in the plan. Deferred to post-v0.1 by explicit user direction during the ports-and-services sweep.
+- [x] **Live-updating TUI table** (§4.6) — Shipped 2026-04-24. `internal/output/live.go` + `--live` flag. ANSI-only redraw (no bubbletea); non-TTY stdout auto-downgrades to `FormatHuman` with a warning. §10 #27.
 - [x] **Service-name database** — Shipped 2026-04-23. `cmd/gen-services` regenerates `internal/output/service.go` from IANA (~6000 TCP assignments, ~150 KB binary delta). §10 #23. Names are IANA-canonical (e.g. 3389 → `ms-wbt-server`); a nickname overlay is a follow-up if users ask.
 
 ## Hardening (Phase 7)
@@ -43,13 +43,13 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 - [x] **Race detector in CI**. `.github/workflows/ci.yml` now runs `go test -race ./...`.
 - [x] **`goreleaser` config + GitHub Releases workflow**. `.goreleaser.yaml` + `.github/workflows/release.yml` — see §10 #13.
 - [x] **Man page**. `cmd/gen-man` + `make man` → `docs/man/scry.1`. §10 #12.
-- [ ] **Docs site**. Plan §9 Phase 7 explicitly mentions this. Options: mdBook, MkDocs, or just a `docs/` folder of hand-written Markdown served by GitHub Pages. Not blocking a v0.1.0 release.
+- [x] **Docs site** — Shipped 2026-04-24. `docs/site/` + Jekyll via `.github/workflows/pages.yml`. §10 #26. Remote theme `pages-themes/cayman`; repo owner still needs to enable Pages (source: GitHub Actions) in repo settings.
 - [x] **`setcap cap_net_raw+ep ./scry`** install docs — documented in README "SYN scanning" section alongside Phase 6.
 - [x] **`goreleaser check` in CI**. `.github/workflows/ci.yml` now runs `goreleaser check` on every PR.
 
 ## Config / UX
 
-- [ ] **Config file support** — §10 #6. Flags-only today. Add viper-backed `~/.config/scry/config.yaml` (`%APPDATA%\scry\` on Windows) only when the flag surface stabilizes and users ask.
+- [x] **Config file support** — Shipped 2026-04-24. Viper-backed; `--config`, `$SCRY_CONFIG`, `$XDG_CONFIG_HOME/scry/config.yaml`. CLI > env > config > default. §10 #25.
 - [x] **`--list-scripts`** flag — ships, prints name/ports/description per `--script` file and exits without scanning. See `internal/cli/list_scripts.go`.
 - [x] **Brand / final name** — §10 #1. Renamed `gscan` → `scry` on 2026-04-23 to dodge the Homebrew collision.
 
@@ -94,4 +94,4 @@ All IPv6 support lives on the **`feat/ipv6-support`** branch (tip at the scannin
 
 ---
 
-_Last updated: 2026-04-24 (scripting-polish sweep)._
+_Last updated: 2026-04-24 (config-docs-live sweep)._

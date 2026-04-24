@@ -7,7 +7,7 @@ import (
 	"errors"
 	"net/netip"
 
-	"github.com/bhoneycutt/scry/internal/target"
+	"github.com/brandonhon/scry/internal/target"
 )
 
 // SYNAvailable reports whether this build of scry includes the raw-socket

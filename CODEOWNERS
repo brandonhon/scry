@@ -1,0 +1,19 @@
+# Code owners for scry.
+#
+# Maintainers listed here are auto-requested as reviewers on PRs that
+# touch the matching paths. Keep this file terse; prefer opening it up
+# to more co-maintainers over gatekeeping.
+
+# Catch-all
+*       @brandonhon
+
+# The plan file is authoritative — change with care.
+scry-plan.md    @brandonhon
+DEFERRED.md     @brandonhon
+
+# Release & CI
+.goreleaser.yaml            @brandonhon
+.github/workflows/          @brandonhon
+
+# Data snapshots (license-sensitive)
+data/   @brandonhon

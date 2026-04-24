@@ -292,7 +292,7 @@ Flags:
 
 Decisions made during implementation. Update this list as decisions are revisited.
 
-1. **Final name:** `scry` — the verb "to scry" (peer into something to see what's there). Four characters, no existing Homebrew formula, no Go-module collision, distinct from `scan`/`probe`/`sonar`. Earlier working name was `gscan`; dropped because of a Homebrew conflict. Module path is `github.com/bhoneycutt/scry`; binary is `scry`; Lua API surface renamed `scry.*` in scripts. _Finalised 2026-04-23, post-Phase 7._
+1. **Final name:** `scry` — the verb "to scry" (peer into something to see what's there). Four characters, no existing Homebrew formula, no Go-module collision, distinct from `scan`/`probe`/`sonar`. Earlier working name was `gscan`; dropped because of a Homebrew conflict. Module path is `github.com/brandonhon/scry`; binary is `scry`; Lua API surface renamed `scry.*` in scripts. _Finalised 2026-04-23, post-Phase 7._
 2. **SYN scan scope:** v2. v1 ships with TCP connect only. Raw-socket path will be build-tag gated (`-tags rawsock`) when added, so the default binary stays CGO-free and dependency-free. _Decided 2026-04-23, Phase 1._
 3. **Scripting engine:** Option A — custom Lua API via `gopher-lua`. No NSE compatibility shim in v1. _Decided 2026-04-23, Phase 1._
 4. **License:** MIT. Permissive, dominant in the Go ecosystem, no copyleft concerns for users embedding or forking. _Decided 2026-04-23, Phase 1._

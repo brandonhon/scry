@@ -10,7 +10,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/bhoneycutt/scry/internal/portscan"
+	"github.com/brandonhon/scry/internal/portscan"
 )
 
 // liveHumanWriter redraws a single host-summary table in place instead

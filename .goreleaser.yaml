@@ -26,7 +26,7 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/bhoneycutt/scry/internal/cli.Version={{ .Version }}
+      - -X github.com/brandonhon/scry/internal/cli.Version={{ .Version }}
 
 archives:
   - id: scry

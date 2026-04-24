@@ -9,12 +9,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/bhoneycutt/scry/internal/output"
-	"github.com/bhoneycutt/scry/internal/portscan"
-	"github.com/bhoneycutt/scry/internal/progress"
-	"github.com/bhoneycutt/scry/internal/resolver"
-	"github.com/bhoneycutt/scry/internal/script"
-	"github.com/bhoneycutt/scry/internal/target"
+	"github.com/brandonhon/scry/internal/output"
+	"github.com/brandonhon/scry/internal/portscan"
+	"github.com/brandonhon/scry/internal/progress"
+	"github.com/brandonhon/scry/internal/resolver"
+	"github.com/brandonhon/scry/internal/script"
+	"github.com/brandonhon/scry/internal/target"
 )
 
 // Version is set at build time via -ldflags "-X ...Version=vX.Y.Z".

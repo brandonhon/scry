@@ -6,13 +6,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bhoneycutt/scry/internal/banner"
-	"github.com/bhoneycutt/scry/internal/discovery"
-	"github.com/bhoneycutt/scry/internal/progress"
-	"github.com/bhoneycutt/scry/internal/resolver"
-	"github.com/bhoneycutt/scry/internal/script"
-	"github.com/bhoneycutt/scry/internal/target"
-	"github.com/bhoneycutt/scry/internal/workerpool"
+	"github.com/brandonhon/scry/internal/banner"
+	"github.com/brandonhon/scry/internal/discovery"
+	"github.com/brandonhon/scry/internal/progress"
+	"github.com/brandonhon/scry/internal/resolver"
+	"github.com/brandonhon/scry/internal/script"
+	"github.com/brandonhon/scry/internal/target"
+	"github.com/brandonhon/scry/internal/workerpool"
 )
 
 // Config tunes a Scan run. Defaults are speed-first: short timeout, no

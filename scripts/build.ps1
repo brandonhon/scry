@@ -33,7 +33,7 @@ function Get-Version {
 }
 
 $Version = Get-Version
-$LdFlags = "-s -w -X github.com/bhoneycutt/scry/internal/cli.Version=$Version"
+$LdFlags = "-s -w -X github.com/brandonhon/scry/internal/cli.Version=$Version"
 
 function Ensure-OutDir {
     if (-not (Test-Path $OutDir)) {

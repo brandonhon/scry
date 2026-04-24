@@ -1,0 +1,61 @@
+name: Bug report
+description: Something scry did wrong or failed to do.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: scry version
+      description: Output of `scry --version`.
+      placeholder: "v0.1.0 / main @ abc1234"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS / architecture
+      placeholder: "Ubuntu 24.04 / amd64"
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Build
+      options:
+        - default (TCP connect)
+        - "-tags rawsock (SYN)"
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output / stderr
+      render: text
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: I scanned only hosts I had authorisation to scan.
+          required: true
+        - label: I checked DEFERRED.md and open issues first.
+          required: true

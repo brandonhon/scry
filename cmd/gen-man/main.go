@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra/doc"
 
-	"github.com/bhoneycutt/scry/internal/cli"
+	"github.com/brandonhon/scry/internal/cli"
 )
 
 func main() {

@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/bhoneycutt/scry/internal/cli"
-	"github.com/bhoneycutt/scry/internal/output"
+	"github.com/brandonhon/scry/internal/cli"
+	"github.com/brandonhon/scry/internal/output"
 )
 
 func main() {

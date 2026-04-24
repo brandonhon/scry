@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/bhoneycutt/scry/internal/script"
+	"github.com/brandonhon/scry/internal/script"
 )
 
 // runListScripts loads every --script FILE, prints one line per script, and

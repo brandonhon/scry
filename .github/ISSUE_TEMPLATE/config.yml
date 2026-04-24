@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/brandonhon/scry/security/advisories/new
+    about: >-
+      Security reports go through private advisories, not public issues.
+      See SECURITY.md.
+  - name: Plan & decision log
+    url: https://github.com/brandonhon/scry/blob/main/scry-plan.md
+    about: Check §10 before proposing a major change.
+  - name: Deferred work
+    url: https://github.com/brandonhon/scry/blob/main/DEFERRED.md
+    about: The open work queue with triage notes.

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bhoneycutt/scry/internal/portscan"
+	"github.com/brandonhon/scry/internal/portscan"
 )
 
 func sampleHost(up bool) portscan.HostResult {

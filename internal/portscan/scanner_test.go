@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bhoneycutt/scry/internal/target"
+	"github.com/brandonhon/scry/internal/target"
 )
 
 // startListener returns an accepting TCP listener on 127.0.0.1 and a

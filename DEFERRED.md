@@ -10,7 +10,8 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 - [x] **ICMP echo discovery** — Shipped 2026-04-23. `internal/discovery/icmp_rawsock_linux.go` races an unprivileged ICMP Echo alongside the TCP ping probes; first responder wins. Default build keeps TCP-only via `icmp_other.go`. §10 #18.
 - [x] **SYN scan (Linux)** — Shipped 2026-04-23. `internal/portscan/syn_linux.go` via gopacket + libpcap under `-tags rawsock`. §10 #15/#16.
-- [ ] **SYN scan (Windows)** — §10 #15. Needs Npcap plus the same pipeline under `rawsock && windows`. `syn_other.go` now carries a detailed contract note naming `scanState` as the reference implementation and listing the Windows-specific pieces (NPF device names via `pcap.FindAllDevs`, ARP via `GetIpNetTable2`/`SendARP`, Npcap WinPcap-compat mode in install docs). Not shipped because there's no Windows host in this workflow for end-to-end verification.
+- [x] **SYN scan (Windows)** — Scaffolded 2026-04-24 in `internal/portscan/syn_windows.go`. Uses `pcap.FindAllDevs` + Go `net.Interfaces` to pick an Npcap device; DST MAC is a broadcast fallback in v0 (proper `GetIpNetTable2` resolution tracked below). Build-verified via `GOOS=windows go build -tags rawsock`. End-to-end verification needs a Windows host with Npcap installed in WinPcap-compat mode running elevated — see `SCRY_SYN_TARGET` opt-in test.
+- [ ] **Windows SYN: GetIpNetTable2 ARP resolution** — Follow-up to the v0 broadcast fallback. Call `iphlpapi.dll!GetIpNetTable2` via `golang.org/x/sys/windows` for the system ARP cache; use `GetBestRoute2` for the off-link gateway. Today's broadcast fallback emits a one-time warn on first SYN.
 - [ ] **SYN scan (IPv6)** — Moved to `feat/ipv6-support` branch on 2026-04-23 (§10 #22). Was scaffolded on `main` (syn_v6_linux.go with Ethernet+IPv6+TCP frame and multicast MAC placeholder); lives on the preservation branch now.
 - [x] **ARP / gateway MAC lookup for SYN** — Shipped 2026-04-23. `internal/portscan/syn_arp_linux.go` reads `/proc/net/arp` for on-link targets and `/proc/net/route` for default-gateway lookup. Falls back to broadcast with a one-time stderr warning on failure. Cached per scan-run in `scanState.macByDst`.
 - [x] **Loopback / WSL2 routability for SYN** — Documented 2026-04-23 in README's new "Known pcap limitations" subsection and in the `--syn` flag help text.
@@ -21,13 +22,13 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 ## Port Lists
 
 - [x] **Replace `top1000` placeholder** — Shipped 2026-04-23. `cmd/gen-top-ports` regenerates `internal/portscan/top.go` from the IANA registry snapshot; the 900-entry tail is now IANA-assigned TCP ports in numeric order. §10 #23. nmap-services was evaluated and rejected on license grounds; see `data/README.md`.
-- [ ] **Frequency-sorted top1000** — still a nice-to-have. Today's tail is numeric-order which beats the previous placeholder but is not frequency-ranked past top100. Options: run our own survey against a sample corpus, or license-audit nmap-services again in a future release.
+- [ ] **Frequency-sorted top1000** — blocked on licensing; not shippable within scry's MIT without a CC0/MIT-licensed frequency corpus or our own survey. Flagged as the only practical route remaining. §10 #23 documents the trade-off.
 
 ## Lua Scripting
 
 - [x] **UDP in scripting API** — Shipped 2026-04-24. `internal/script/api_udp.go`; `scry.udp.send(host, port, payload, opts)` with optional reply. §10 #24.
 - [x] **Stateful TCP connection API** — Shipped 2026-04-24. `scry.tcp.connect(...)` returns a userdata with `:send`, `:read(n)`, `:close`. §10 #24.
-- [ ] **NSE compatibility shim (Option B, §7)**. Expose `nmap.*` module implementing the most-used NSE helpers (`nmap.new_socket`, `stdnse.get_script_args`, `shortport.port_or_service`) so simple NSE scripts run unmodified. v2 material — document a compatibility matrix.
+- [x] **NSE compatibility shim (Option B, §7)** — Shipped 2026-04-24. Tier-1 surface (`nmap.new_socket` + `stdnse.get_script_args` + `stdnse.print_debug`) in `internal/script/api_nse_shim.go`. Tier-2 libs (`shortport`, `creds`, `brute`, protocol helpers) deliberately unsupported; scripts that use them error cleanly. §10 #28.
 - [x] **Script tests** — 47.3% → **83.8%** (2026-04-24). Added TLS cert + TLS request + TLS error tests against an in-process self-signed server; dns.lookup/reverse smoke tests; log.* callbacks; util.unhex happy + error; Load() error paths.
 - [x] **More bundled scripts**. Plan §9 list complete: http-title ✅, ssh-banner ✅, tls-cert-info ✅, smb-version ✅ (uses the new stateful tcp.connect), redis-ping ✅.
 
@@ -73,7 +74,7 @@ All IPv6 support lives on the **`feat/ipv6-support`** branch (tip at the scannin
 ## Build System
 
 - [x] ~~`GO111MODULE=off` host default~~ — Makefile exports `on`, CI sets it, PowerShell script sets it. Documented.
-- [ ] **`go.mod` auto-upgrade on `go get`**. `go get <pkg>@latest` repeatedly bumps the module `go` directive to the installed toolchain (1.25 locally). Today handled by manual `go mod edit -go=1.22` after each add. Consider either pinning `GOTOOLCHAIN=go1.22.x` in the Makefile, or deciding to move the module to a newer minimum version.
+- [x] **`go.mod` auto-upgrade on `go get`** — Pinned 2026-04-24. Makefile exports `GOTOOLCHAIN=go1.23.0`. Override with `GOTOOLCHAIN=local` when intentionally upgrading.
 
 ## Coverage Targets
 
@@ -94,4 +95,4 @@ All IPv6 support lives on the **`feat/ipv6-support`** branch (tip at the scannin
 
 ---
 
-_Last updated: 2026-04-24 (config-docs-live sweep)._
+_Last updated: 2026-04-24 (final-deferred sweep)._

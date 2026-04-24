@@ -362,7 +362,6 @@ func TestIterator_LargeCIDR_LazyTotal(t *testing.T) {
 	}
 }
 
-
 // -- multiple specs -----------------------------------------------------------
 
 func TestParse_MultipleSpecs(t *testing.T) {
@@ -400,9 +399,9 @@ func TestLastInPrefix(t *testing.T) {
 
 func TestAddrDiff(t *testing.T) {
 	cases := []struct {
-		a, b   string
-		n      uint64
-		ok     bool
+		a, b string
+		n    uint64
+		ok   bool
 	}{
 		{"10.0.0.0", "10.0.0.0", 1, true},
 		{"10.0.0.0", "10.0.0.9", 10, true},

@@ -54,14 +54,13 @@ func Ping(ctx context.Context, addr netip.Addr, cfg Config) Result {
 		timeout = 800 * time.Millisecond
 	}
 
-
 	probeCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	type outcome struct {
-		up   bool
-		rtt  time.Duration
-		via  string
+		up  bool
+		rtt time.Duration
+		via string
 	}
 	results := make(chan outcome, len(ports)+1)
 

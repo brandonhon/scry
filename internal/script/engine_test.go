@@ -61,7 +61,7 @@ function run(h, p) end
 }
 
 func TestLoad_MissingRun(t *testing.T) {
-	p := writeScript(t, `description = "x"` + "\n" + `ports = {22}`)
+	p := writeScript(t, `description = "x"`+"\n"+`ports = {22}`)
 	if _, err := Load(p); err == nil {
 		t.Fatal("expected error for missing run")
 	}

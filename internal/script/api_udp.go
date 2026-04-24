@@ -18,11 +18,12 @@ func buildUDPTable(L *lua.LState) *lua.LTable {
 // udpSend: scry.udp.send(host, port, payload, opts?) -> bytes, err?
 //
 // Sends one UDP packet and optionally waits for one response. Opts:
-//   timeout    (ms, default 1500)
-//   max_bytes  (int, default 1500)
-//   expect_reply (bool, default true) — when false, returns "" after send
-//     and does not wait for a reply, useful for fire-and-forget probes
-//     (e.g. DHCP discover, syslog).
+//
+//	timeout    (ms, default 1500)
+//	max_bytes  (int, default 1500)
+//	expect_reply (bool, default true) — when false, returns "" after send
+//	  and does not wait for a reply, useful for fire-and-forget probes
+//	  (e.g. DHCP discover, syslog).
 //
 // Timeouts return ("", "timeout") rather than an error so scripts can
 // distinguish "no reply" (often informative for UDP services) from a

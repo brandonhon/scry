@@ -2,7 +2,6 @@ package portscan
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -117,13 +116,4 @@ func parsePortRange(tok string) (int, int, error) {
 		return 0, 0, fmt.Errorf("invalid port range %q: start > end", tok)
 	}
 	return int(lo), int(hi), nil
-}
-
-// SortPorts returns a new slice of ports sorted ascending. Useful when
-// presenting results; ParsePorts itself preserves input order.
-func SortPorts(ps []uint16) []uint16 {
-	out := make([]uint16, len(ps))
-	copy(out, ps)
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return out
 }

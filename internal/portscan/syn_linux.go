@@ -450,4 +450,3 @@ func pickInterface() (string, net.IP, net.HardwareAddr, error) {
 	}
 	return "", nil, nil, errors.New("no non-loopback IPv4 interface found")
 }
-

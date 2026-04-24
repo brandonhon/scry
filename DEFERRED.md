@@ -25,12 +25,11 @@ The `scry-plan.md` §10 decisions log is the **authoritative** short-form record
 
 ## Lua Scripting
 
-- [ ] **UDP in scripting API** — §10 #9. Add `scry.udp.send(host, port, payload, opts)` when a real script needs it (likely candidates: `dns-info.lua`, `snmp-version.lua`).
-  - Affects: `internal/script/api_udp.go` (new).
-- [ ] **Stateful TCP connection API**. Today scripts only have the one-shot `tcp.request`. For protocols that need multiple round-trips (IMAP, SMTP LOGIN, binary handshakes), expose userdata `conn = scry.tcp.connect(...)` with `conn:send`, `conn:read(n, opts)`, `conn:close`.
+- [x] **UDP in scripting API** — Shipped 2026-04-24. `internal/script/api_udp.go`; `scry.udp.send(host, port, payload, opts)` with optional reply. §10 #24.
+- [x] **Stateful TCP connection API** — Shipped 2026-04-24. `scry.tcp.connect(...)` returns a userdata with `:send`, `:read(n)`, `:close`. §10 #24.
 - [ ] **NSE compatibility shim (Option B, §7)**. Expose `nmap.*` module implementing the most-used NSE helpers (`nmap.new_socket`, `stdnse.get_script_args`, `shortport.port_or_service`) so simple NSE scripts run unmodified. v2 material — document a compatibility matrix.
-- [ ] **Script tests**. `internal/script` coverage is 47.3%. TLS and DNS API paths are exercised end-to-end by bundled scripts but lack direct unit tests. Stand up a self-signed TLS server in tests and cover `tls.cert` / `tls.request`; mock the resolver for `dns.lookup` / `dns.reverse`.
-- [ ] **More bundled scripts**. Plan §9 lists: http-title ✅, ssh-banner ✅, tls-cert-info ✅, smb-version ❌ (needs a binary-protocol probe — defer until stateful TCP API lands), redis-ping ✅.
+- [x] **Script tests** — 47.3% → **83.8%** (2026-04-24). Added TLS cert + TLS request + TLS error tests against an in-process self-signed server; dns.lookup/reverse smoke tests; log.* callbacks; util.unhex happy + error; Load() error paths.
+- [x] **More bundled scripts**. Plan §9 list complete: http-title ✅, ssh-banner ✅, tls-cert-info ✅, smb-version ✅ (uses the new stateful tcp.connect), redis-ping ✅.
 
 ## Output
 
@@ -78,7 +77,7 @@ All IPv6 support lives on the **`feat/ipv6-support`** branch (tip at the scannin
 
 ## Coverage Targets
 
-- [ ] **Lift `internal/script` coverage** above 70%. Currently 47.3% — see "Script tests" above.
+- [x] **Lift `internal/script` coverage** — 47.3% → 83.8% (2026-04-24). See "Script tests" above.
 - [x] **Lift `internal/progress` coverage** — 68.8% → 87.5%. `isTTY` injected as a package-level var; tests now hit all three branches of `New()`.
 - [x] **Lift `internal/resolver` coverage** — 70.8% → 96.0%. `defaultLookup` + underlying `lookupAddr` both exposed as package-level vars for stubbing; error-mapping paths covered.
 
@@ -95,4 +94,4 @@ All IPv6 support lives on the **`feat/ipv6-support`** branch (tip at the scannin
 
 ---
 
-_Last updated: 2026-04-23 (ports-and-services sweep)._
+_Last updated: 2026-04-24 (scripting-polish sweep)._

@@ -11,6 +11,7 @@ func registerAPI(L *lua.LState) {
 	root := L.NewTable()
 
 	L.SetField(root, "tcp", buildTCPTable(L))
+	L.SetField(root, "udp", buildUDPTable(L))
 	L.SetField(root, "tls", buildTLSTable(L))
 	L.SetField(root, "dns", buildDNSTable(L))
 	L.SetField(root, "log", buildLogTable(L))
